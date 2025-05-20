@@ -1,0 +1,5 @@
+# Ignore learning docs
+Learning Docs
+
+# Ignore environment file
+.env
