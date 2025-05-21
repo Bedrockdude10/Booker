@@ -1,0 +1,37 @@
+[
+    {
+      "name": "Taylor Swift",
+      "genres": ["Pop", "Country", "Folk"],
+      "manager": "Tree Paine",
+      "cities": ["Nashville", "New York", "Los Angeles"],
+      "spotify_id": "06HL4z0CvFAxyc27GXpf02"
+    },
+    {
+      "name": "The Weeknd",
+      "genres": ["R&B", "Pop", "Alternative R&B"],
+      "manager": "Wassim Slaiby",
+      "cities": ["Toronto", "Los Angeles"],
+      "spotify_id": "1Xyo4u8uXC1ZmMpatF05PJ"
+    },
+    {
+      "name": "Bad Bunny",
+      "genres": ["Reggaeton", "Latin Trap", "Urbano Latino"],
+      "manager": "Noah Assad",
+      "cities": ["San Juan", "Miami"],
+      "spotify_id": "4q3ewBCX7sLwd24euuV69X"
+    },
+    {
+      "name": "Billie Eilish",
+      "genres": ["Pop", "Alternative", "Electropop"],
+      "manager": "Danny Rukasin",
+      "cities": ["Los Angeles"],
+      "spotify_id": "6qqNVTkY8uBg9cP3Jd7DAH"
+    },
+    {
+      "name": "Kendrick Lamar",
+      "genres": ["Hip Hop", "Rap", "Conscious Hip Hop"],
+      "manager": "Dave Free",
+      "cities": ["Compton", "Los Angeles"],
+      "spotify_id": "2YZyLoL8N0Wb9xBt1NhZWg"
+    }
+  ]

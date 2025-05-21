@@ -3,3 +3,6 @@ Learning Docs
 
 # Ignore environment file
 .env
+
+# Ignore DS store files
+.DS_Store
