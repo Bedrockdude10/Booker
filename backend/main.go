@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Bedrockdude10/Booker/backend/handlers/artists"
+	"github.com/Bedrockdude10/Booker/backend/utils"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -116,6 +117,8 @@ func run(stderr io.Writer, args []string) {
 		AllowCredentials: true,
 		MaxAge:           300, // Maximum value not readily apparent
 	}))
+	// Add the error handling middleware to your router
+	r.Use(utils.ErrorHandleMiddleware)
 
 	// Mount artist routes
 	artists.Routes(r, collections)

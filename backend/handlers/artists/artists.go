@@ -1,3 +1,4 @@
+// artists/handlers.go
 package artists
 
 import (
@@ -6,30 +7,27 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/Bedrockdude10/Booker/backend/utils"
 	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
-/*
-Handler to execute business logic for Artists Endpoint
-*/
 type Handler struct {
 	service *Service
 }
 
-// CreateArtist handles the creation of a new artist
+// CreateArtist - much cleaner now
 func (h *Handler) CreateArtist(w http.ResponseWriter, r *http.Request) {
 	var params CreateArtistParams
 
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		utils.HandleError(w, utils.ValidationError("Invalid request body"))
 		return
 	}
 
-	artist, err := h.service.CreateArtist(params)
-	if err != nil {
-		http.Error(w, "Failed to create artist", http.StatusInternalServerError)
+	artist, appErr := h.service.CreateArtist(r.Context(), params)
+	if appErr != nil {
+		utils.HandleError(w, appErr)
 		return
 	}
 
@@ -38,33 +36,13 @@ func (h *Handler) CreateArtist(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(artist)
 }
 
-// GetArtists handles retrieving all artists with pagination
+// GetArtists - cleaner pagination handling
 func (h *Handler) GetArtists(w http.ResponseWriter, r *http.Request) {
-	// Get page and limit from query parameters
-	pageStr := r.URL.Query().Get("page")
-	limitStr := r.URL.Query().Get("limit")
+	page, limit := parsePagination(r)
 
-	page := 1
-	limit := 10
-
-	if pageStr != "" {
-		if pageVal, err := strconv.Atoi(pageStr); err == nil && pageVal > 0 {
-			page = pageVal
-		}
-	}
-
-	if limitStr != "" {
-		if limitVal, err := strconv.Atoi(limitStr); err == nil && limitVal > 0 {
-			if limitVal > 100 {
-				limitVal = 100 // Cap at 100
-			}
-			limit = limitVal
-		}
-	}
-
-	artists, total, err := h.service.GetArtists(page, limit)
-	if err != nil {
-		http.Error(w, "Failed to fetch artists", http.StatusInternalServerError)
+	artists, total, appErr := h.service.GetArtists(r.Context(), page, limit)
+	if appErr != nil {
+		utils.HandleError(w, appErr)
 		return
 	}
 
@@ -78,268 +56,161 @@ func (h *Handler) GetArtists(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	writeJSON(w, response)
 }
 
-// GetArtist handles retrieving a single artist by ID
+// GetArtist - much simpler
 func (h *Handler) GetArtist(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := primitive.ObjectIDFromHex(idStr)
-	if err != nil {
-		http.Error(w, "Invalid artist ID", http.StatusBadRequest)
+	id, appErr := parseObjectID(chi.URLParam(r, "id"))
+	if appErr != nil {
+		utils.HandleError(w, appErr)
 		return
 	}
 
-	artist, err := h.service.GetArtistByID(id)
-	if err != nil {
-		if err == primitive.ErrInvalidHex {
-			http.Error(w, "Invalid artist ID format", http.StatusBadRequest)
-		} else if err == mongo.ErrNoDocuments {
-			http.Error(w, "Artist not found", http.StatusNotFound)
-		} else {
-			http.Error(w, "Failed to fetch artist", http.StatusInternalServerError)
-		}
+	artist, appErr := h.service.GetArtistByID(r.Context(), id)
+	if appErr != nil {
+		utils.HandleError(w, appErr)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(artist)
+	writeJSON(w, artist)
 }
 
-// UpdateArtist handles updating an existing artist
+// UpdateArtist - cleaner update
 func (h *Handler) UpdateArtist(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := primitive.ObjectIDFromHex(idStr)
-	if err != nil {
-		http.Error(w, "Invalid artist ID", http.StatusBadRequest)
+	id, appErr := parseObjectID(chi.URLParam(r, "id"))
+	if appErr != nil {
+		utils.HandleError(w, appErr)
 		return
 	}
 
 	var params CreateArtistParams
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		utils.HandleError(w, utils.ValidationError("Invalid request body"))
 		return
 	}
 
-	updatedArtist, err := h.service.UpdateArtist(id, params)
-	if err != nil {
-		http.Error(w, "Failed to update artist", http.StatusInternalServerError)
+	updatedArtist, appErr := h.service.UpdateArtist(r.Context(), id, params)
+	if appErr != nil {
+		utils.HandleError(w, appErr)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(updatedArtist)
+	writeJSON(w, updatedArtist)
 }
 
-// UpdatePartialArtist handles partial updates to an artist
+// UpdatePartialArtist - cleaner partial update
 func (h *Handler) UpdatePartialArtist(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := primitive.ObjectIDFromHex(idStr)
-	if err != nil {
-		http.Error(w, "Invalid artist ID", http.StatusBadRequest)
+	id, appErr := parseObjectID(chi.URLParam(r, "id"))
+	if appErr != nil {
+		utils.HandleError(w, appErr)
 		return
 	}
 
 	var params CreateArtistParams
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		utils.HandleError(w, utils.ValidationError("Invalid request body"))
 		return
 	}
 
-	updatedArtist, err := h.service.UpdatePartialArtist(id, params)
-	if err != nil {
-		http.Error(w, "Failed to update artist", http.StatusInternalServerError)
+	updatedArtist, appErr := h.service.UpdatePartialArtist(r.Context(), id, params)
+	if appErr != nil {
+		utils.HandleError(w, appErr)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(updatedArtist)
+	writeJSON(w, updatedArtist)
 }
 
-// DeleteArtist handles removing an artist
+// DeleteArtist - simple deletion
 func (h *Handler) DeleteArtist(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := primitive.ObjectIDFromHex(idStr)
-	if err != nil {
-		http.Error(w, "Invalid artist ID", http.StatusBadRequest)
+	id, appErr := parseObjectID(chi.URLParam(r, "id"))
+	if appErr != nil {
+		utils.HandleError(w, appErr)
 		return
 	}
 
-	if err := h.service.DeleteArtist(id); err != nil {
-		http.Error(w, "Failed to delete artist", http.StatusInternalServerError)
+	if appErr := h.service.DeleteArtist(r.Context(), id); appErr != nil {
+		utils.HandleError(w, appErr)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// GetArtistsByGenre handles retrieving artists by genre
+// GetArtistsByGenre - simplified
 func (h *Handler) GetArtistsByGenre(w http.ResponseWriter, r *http.Request) {
 	genre := chi.URLParam(r, "genre")
 
-	artists, err := h.service.GetAllArtistsByGenre(genre)
-	if err != nil {
-		http.Error(w, "Failed to fetch artists by genre", http.StatusInternalServerError)
+	artists, appErr := h.service.GetAllArtistsByGenre(r.Context(), genre)
+	if appErr != nil {
+		utils.HandleError(w, appErr)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSON(w, map[string]interface{}{
 		"data":  artists,
 		"genre": genre,
 	})
 }
 
-// GetArtistsByCity handles retrieving artists by city
+// GetArtistsByCity - simplified
 func (h *Handler) GetArtistsByCity(w http.ResponseWriter, r *http.Request) {
 	city := chi.URLParam(r, "city")
 
-	artists, err := h.service.GetArtistsByCity(city)
-	if err != nil {
-		http.Error(w, "Failed to fetch artists by city", http.StatusInternalServerError)
+	artists, appErr := h.service.GetArtistsByCity(r.Context(), city)
+	if appErr != nil {
+		utils.HandleError(w, appErr)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSON(w, map[string]interface{}{
 		"data": artists,
 		"city": city,
 	})
 }
 
-// GetRecommendations handles general artist recommendations
-func (h *Handler) GetRecommendations(w http.ResponseWriter, r *http.Request) {
-	recommendations, err := h.service.GetRecommendations()
-	if err != nil {
-		http.Error(w, "Failed to fetch recommendations", http.StatusInternalServerError)
-		return
+// Helper functions to reduce boilerplate
+
+// parsePagination extracts page and limit from query parameters
+func parsePagination(r *http.Request) (page, limit int) {
+	page = 1
+	limit = 10
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if pageVal, err := strconv.Atoi(pageStr); err == nil && pageVal > 0 {
+			page = pageVal
+		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"data": recommendations,
-	})
-}
-
-// GetRecommendationsByGenre handles genre-specific recommendations
-func (h *Handler) GetRecommendationsByGenre(w http.ResponseWriter, r *http.Request) {
-	genre := chi.URLParam(r, "genre")
-
-	recommendations, err := h.service.GetRecommendationsByGenre(genre)
-	if err != nil {
-		http.Error(w, "Failed to fetch recommendations by genre", http.StatusInternalServerError)
-		return
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if limitVal, err := strconv.Atoi(limitStr); err == nil && limitVal > 0 {
+			if limitVal > 100 {
+				limitVal = 100 // Cap at 100
+			}
+			limit = limitVal
+		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"data":  recommendations,
-		"genre": genre,
-	})
+	return page, limit
 }
 
-// GetRecommendationsByLocation handles location-specific recommendations
-func (h *Handler) GetRecommendationsByLocation(w http.ResponseWriter, r *http.Request) {
-	city := chi.URLParam(r, "city")
-
-	recommendations, err := h.service.GetRecommendationsByLocation(city)
-	if err != nil {
-		http.Error(w, "Failed to fetch recommendations by city", http.StatusInternalServerError)
-		return
+// parseObjectID converts string to ObjectID with proper error handling
+func parseObjectID(idStr string) (primitive.ObjectID, *utils.AppError) {
+	if idStr == "" {
+		return primitive.NilObjectID, utils.ValidationError("ID parameter is required")
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"data": recommendations,
-		"city": city,
-	})
+	id, err := primitive.ObjectIDFromHex(idStr)
+	if err != nil {
+		return primitive.NilObjectID, utils.ValidationError("Invalid ID format")
+	}
+
+	return id, nil
 }
 
-// // SaveUserPreferences handles saving user listening preferences
-// func (h *Handler) SaveUserPreferences(w http.ResponseWriter, r *http.Request) {
-// 	var prefs struct {
-// 		UserID   string   `json:"userId"`
-// 		Genres   []string `json:"genres"`
-// 		Artists  []string `json:"artists,omitempty"`
-// 		Location string   `json:"location,omitempty"`
-// 	}
-
-// 	if err := json.NewDecoder(r.Body).Decode(&prefs); err != nil {
-// 		http.Error(w, "Invalid request body", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	userID, err := primitive.ObjectIDFromHex(prefs.UserID)
-// 	if err != nil {
-// 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	// Convert artist IDs from strings to ObjectIDs
-// 	var artistIDs []primitive.ObjectID
-// 	for _, artistIDStr := range prefs.Artists {
-// 		artistID, err := primitive.ObjectIDFromHex(artistIDStr)
-// 		if err != nil {
-// 			http.Error(w, "Invalid artist ID in list", http.StatusBadRequest)
-// 			return
-// 		}
-// 		artistIDs = append(artistIDs, artistID)
-// 	}
-
-// 	userPrefs, err := h.service.SaveUserPreferences(userID, prefs.Genres, artistIDs, prefs.Location)
-// 	if err != nil {
-// 		http.Error(w, "Failed to save user preferences", http.StatusInternalServerError)
-// 		return
-// 	}
-
-// 	w.Header().Set("Content-Type", "application/json")
-// 	json.NewEncoder(w).Encode(userPrefs)
-// }
-
-// // GetUserPreferences handles retrieving user listening preferences
-// func (h *Handler) GetUserPreferences(w http.ResponseWriter, r *http.Request) {
-// 	userIDStr := chi.URLParam(r, "userId")
-// 	userID, err := primitive.ObjectIDFromHex(userIDStr)
-// 	if err != nil {
-// 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	prefs, err := h.service.GetUserPreferences(userID)
-// 	if err != nil {
-// 		if err == primitive.ErrInvalidHex {
-// 			http.Error(w, "Invalid user ID format", http.StatusBadRequest)
-// 		} else if err == mongo.ErrNoDocuments {
-// 			http.Error(w, "User preferences not found", http.StatusNotFound)
-// 		} else {
-// 			http.Error(w, "Failed to fetch user preferences", http.StatusInternalServerError)
-// 		}
-// 		return
-// 	}
-
-// 	w.Header().Set("Content-Type", "application/json")
-// 	json.NewEncoder(w).Encode(prefs)
-// }
-
-// // GetPersonalizedRecommendations handles user-specific recommendations
-// func (h *Handler) GetPersonalizedRecommendations(w http.ResponseWriter, r *http.Request) {
-// 	userIDStr := chi.URLParam(r, "userId")
-// 	userID, err := primitive.ObjectIDFromHex(userIDStr)
-// 	if err != nil {
-// 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	recommendations, err := h.service.GetPersonalizedRecommendations(userID)
-// 	if err != nil {
-// 		http.Error(w, "Failed to fetch personalized recommendations", http.StatusInternalServerError)
-// 		return
-// 	}
-
-// 	w.Header().Set("Content-Type", "application/json")
-// 	json.NewEncoder(w).Encode(map[string]interface{}{
-// 		"data":   recommendations,
-// 		"userId": userIDStr,
-// 	})
-// }
+// writeJSON is a helper to write JSON responses
+func writeJSON(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
