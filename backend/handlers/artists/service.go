@@ -1,8 +1,10 @@
-// artists/service.go - Improved version (keeping original signatures)
+// handlers/artists/service.go
 package artists
 
 import (
 	"context"
+	"os"
+	"strconv"
 
 	"github.com/Bedrockdude10/Booker/backend/utils"
 	"go.mongodb.org/mongo-driver/bson"
@@ -31,7 +33,7 @@ func (s *Service) GetArtists(ctx context.Context, page int, limit int) ([]Artist
 	findOptions := options.Find().
 		SetLimit(int64(limit)).
 		SetSkip(int64(skip)).
-		SetSort(bson.M{"name": 1})
+		SetSort(getDefaultSort())
 
 	cursor, err := s.artists.Find(ctx, bson.M{}, findOptions)
 	if err != nil {
@@ -236,10 +238,10 @@ func (s *Service) DeleteArtist(ctx context.Context, id primitive.ObjectID) *util
 	return nil
 }
 
-// GetRecommendations - same signature as your original
+// GetRecommendations - updated to use environment variable for limit
 func (s *Service) GetRecommendations() ([]ArtistDocument, error) {
 	ctx := context.Background()
-	findOptions := options.Find().SetLimit(10)
+	findOptions := options.Find().SetLimit(int64(getRecommendationLimit()))
 
 	cursor, err := s.artists.Find(ctx, bson.M{}, findOptions)
 	if err != nil {
@@ -255,7 +257,7 @@ func (s *Service) GetRecommendations() ([]ArtistDocument, error) {
 	return results, nil
 }
 
-// GetRecommendationsByGenre - same signature as your original
+// GetRecommendationsByGenre - updated to use environment variable for limit
 func (s *Service) GetRecommendationsByGenre(genre string) ([]ArtistDocument, error) {
 	if !HasGenre(genre) {
 		return nil, utils.ValidationError("Invalid genre", "Genre '"+genre+"' is not valid")
@@ -263,7 +265,7 @@ func (s *Service) GetRecommendationsByGenre(genre string) ([]ArtistDocument, err
 
 	ctx := context.Background()
 	filter := bson.M{"genres": genre}
-	findOptions := options.Find().SetLimit(10)
+	findOptions := options.Find().SetLimit(int64(getRecommendationLimit()))
 
 	cursor, err := s.artists.Find(ctx, filter, findOptions)
 	if err != nil {
@@ -279,7 +281,7 @@ func (s *Service) GetRecommendationsByGenre(genre string) ([]ArtistDocument, err
 	return results, nil
 }
 
-// GetRecommendationsByLocation - same signature as your original
+// GetRecommendationsByLocation - updated to use environment variable for limit
 func (s *Service) GetRecommendationsByLocation(city string) ([]ArtistDocument, error) {
 	if city == "" {
 		return nil, utils.ValidationError("City is required")
@@ -287,7 +289,7 @@ func (s *Service) GetRecommendationsByLocation(city string) ([]ArtistDocument, e
 
 	ctx := context.Background()
 	filter := bson.M{"cities": city}
-	findOptions := options.Find().SetLimit(10)
+	findOptions := options.Find().SetLimit(int64(getRecommendationLimit()))
 
 	cursor, err := s.artists.Find(ctx, filter, findOptions)
 	if err != nil {
@@ -301,4 +303,23 @@ func (s *Service) GetRecommendationsByLocation(city string) ([]ArtistDocument, e
 	}
 
 	return results, nil
+}
+
+// getRecommendationLimit returns the recommendation limit from environment
+func getRecommendationLimit() int {
+	if limitStr := os.Getenv("RECOMMENDATION_LIMIT"); limitStr != "" {
+		if limitVal, err := strconv.Atoi(limitStr); err == nil && limitVal > 0 {
+			return limitVal
+		}
+	}
+	return 10 // fallback default
+}
+
+// getDefaultSort returns the default sort configuration from environment
+func getDefaultSort() bson.M {
+	sortField := os.Getenv("DEFAULT_SORT_FIELD")
+	if sortField == "" {
+		sortField = "name" // fallback default
+	}
+	return bson.M{sortField: 1} // 1 for ascending order
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"math"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/Bedrockdude10/Booker/backend/utils"
@@ -172,10 +173,10 @@ func (h *Handler) GetArtistsByCity(w http.ResponseWriter, r *http.Request) {
 
 // Helper functions to reduce boilerplate
 
-// parsePagination extracts page and limit from query parameters
+// parsePagination extracts page and limit from query parameters using env vars
 func parsePagination(r *http.Request) (page, limit int) {
 	page = 1
-	limit = 10
+	limit = getDefaultPageSize()
 
 	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
 		if pageVal, err := strconv.Atoi(pageStr); err == nil && pageVal > 0 {
@@ -185,14 +186,35 @@ func parsePagination(r *http.Request) (page, limit int) {
 
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if limitVal, err := strconv.Atoi(limitStr); err == nil && limitVal > 0 {
-			if limitVal > 100 {
-				limitVal = 100 // Cap at 100
+			maxPageSize := getMaxPageSize()
+			if limitVal > maxPageSize {
+				limitVal = maxPageSize
 			}
 			limit = limitVal
 		}
 	}
 
 	return page, limit
+}
+
+// getDefaultPageSize returns the default page size from environment
+func getDefaultPageSize() int {
+	if defaultStr := os.Getenv("DEFAULT_PAGE_SIZE"); defaultStr != "" {
+		if defaultVal, err := strconv.Atoi(defaultStr); err == nil && defaultVal > 0 {
+			return defaultVal
+		}
+	}
+	return 10 // fallback default
+}
+
+// getMaxPageSize returns the maximum page size from environment
+func getMaxPageSize() int {
+	if maxStr := os.Getenv("MAX_PAGE_SIZE"); maxStr != "" {
+		if maxVal, err := strconv.Atoi(maxStr); err == nil && maxVal > 0 {
+			return maxVal
+		}
+	}
+	return 100 // fallback default
 }
 
 // parseObjectID converts string to ObjectID with proper error handling

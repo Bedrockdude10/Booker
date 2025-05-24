@@ -12,10 +12,10 @@ Router maps endpoints to handlers for artist-related operations
 */
 func Routes(r chi.Router, collections map[string]*mongo.Collection) {
 	service := NewService(collections)
-	handler := &Handler{service: service} // Fix: properly initialize handler
+	handler := &Handler{service: service}
 
-	// Mount artist routes under /api/v1/artists
-	r.Route("/api/v1/artists", func(r chi.Router) {
+	// Mount artist routes under /api/artists (no versioning)
+	r.Route("/api/artists", func(r chi.Router) {
 		// Basic CRUD operations
 		r.Post("/", handler.CreateArtist)
 		r.Get("/", handler.GetArtists)
@@ -43,7 +43,7 @@ func Routes(r chi.Router, collections map[string]*mongo.Collection) {
 	})
 }
 
-// Add this handler method to your improved handlers file
+// Retrieves all genres
 func (h *Handler) GetAllGenres(w http.ResponseWriter, r *http.Request) {
 	genres := GetAllGenres()
 

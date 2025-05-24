@@ -1,3 +1,4 @@
+// handlers/artists/types.go
 package artists
 
 import (
