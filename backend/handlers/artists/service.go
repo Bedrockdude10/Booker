@@ -3,11 +3,14 @@ package artists
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/Bedrockdude10/Booker/backend/domain"
 	"github.com/Bedrockdude10/Booker/backend/utils"
+	"github.com/dgraph-io/ristretto"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -16,9 +19,20 @@ import (
 
 // NewService receives the map of collections and initializes the service
 func NewService(collections map[string]*mongo.Collection) *Service {
+	// Simple cache setup - works great with defaults
+	cache, err := ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1e7,     // 10M counters
+		MaxCost:     1 << 28, // 256MB max
+		BufferItems: 64,      // Buffer size
+	})
+	if err != nil {
+		panic(err) // Handle appropriately
+	}
+
 	return &Service{
 		artists:         collections["artists"],
 		userPreferences: collections["userPreferences"],
+		cache:           cache,
 	}
 }
 
@@ -67,10 +81,21 @@ func (s *Service) GetArtistByID(ctx context.Context, id primitive.ObjectID) (*Ar
 
 // GetAllArtistsByGenre - using domain package for validation
 func (s *Service) GetAllArtistsByGenre(ctx context.Context, genre string) ([]ArtistDocument, *utils.AppError) {
+	cacheKey := fmt.Sprintf("artists:genre:%s", genre)
+
+	// Try cache first
+	if cached, found := s.cache.Get(cacheKey); found {
+		if artists, ok := cached.([]ArtistDocument); ok {
+			return artists, nil
+		}
+	}
+
+	// Validate genre using your existing domain package
 	if !domain.HasGenre(genre) {
 		return nil, utils.ValidationErrorLog(ctx, "Invalid genre", "Genre '"+genre+"' is not valid")
 	}
 
+	// Fetch from MongoDB (your existing logic)
 	cursor, err := s.artists.Find(ctx, bson.M{"genres": genre})
 	if err != nil {
 		return nil, utils.DatabaseErrorLog(ctx, "find artists by genre", err)
@@ -82,15 +107,30 @@ func (s *Service) GetAllArtistsByGenre(ctx context.Context, genre string) ([]Art
 		return nil, utils.DatabaseErrorLog(ctx, "decode artists by genre", err)
 	}
 
+	// Cache the results (15 minutes TTL, cost = 1)
+	s.cache.SetWithTTL(cacheKey, results, 1, 15*time.Minute)
+
 	return results, nil
 }
 
-// GetArtistsByCity - same signature, improved error handling
+// GetArtistsByCity retrieves a list of artists based on the specified city.
+// It first checks the cache for the artists by city, and if not found, fetches them from MongoDB.
+// The results are cached for 10 minutes to improve performance.
 func (s *Service) GetArtistsByCity(ctx context.Context, city string) ([]ArtistDocument, *utils.AppError) {
 	if city == "" {
 		return nil, utils.ValidationErrorLog(ctx, "City is required")
 	}
 
+	cacheKey := fmt.Sprintf("artists:city:%s", city)
+
+	// Try cache first
+	if cached, found := s.cache.Get(cacheKey); found {
+		if artists, ok := cached.([]ArtistDocument); ok {
+			return artists, nil
+		}
+	}
+
+	// Fetch from MongoDB
 	cursor, err := s.artists.Find(ctx, bson.M{"cities": city})
 	if err != nil {
 		return nil, utils.DatabaseErrorLog(ctx, "find artists by city", err)
@@ -101,6 +141,9 @@ func (s *Service) GetArtistsByCity(ctx context.Context, city string) ([]ArtistDo
 	if err := cursor.All(ctx, &results); err != nil {
 		return nil, utils.DatabaseErrorLog(ctx, "decode artists by city", err)
 	}
+
+	// Cache for 10 minutes (cities change less frequently than genres)
+	s.cache.SetWithTTL(cacheKey, results, 1, 10*time.Minute)
 
 	return results, nil
 }
@@ -130,7 +173,23 @@ func (s *Service) CreateArtist(ctx context.Context, params CreateArtistParams) (
 		)
 	}
 
+	// Invalidate related caches
+	s.invalidateCaches(params.Genres, params.Cities)
+
 	return &artist, nil
+}
+
+// Helper function to invalidate caches
+func (s *Service) invalidateCaches(genres []string, cities []string) {
+	// Invalidate genre caches
+	for _, genre := range genres {
+		s.cache.Del(fmt.Sprintf("artists:genre:%s", genre))
+	}
+
+	// Invalidate city caches
+	for _, city := range cities {
+		s.cache.Del(fmt.Sprintf("artists:city:%s", city))
+	}
 }
 
 // UpdateArtist - cleaned up, validation moved to handler layer
@@ -318,4 +377,19 @@ func getDefaultSort() bson.M {
 		sortField = "name" // fallback default
 	}
 	return bson.M{sortField: 1} // 1 for ascending order
+}
+
+// Cache warming for popular queries
+func (s *Service) WarmCache(ctx context.Context) {
+	popularGenres := []string{"rock", "pop", "hip-hop", "electronic", "jazz"}
+	popularCities := []string{"Nashville", "Los Angeles", "New York", "Austin"}
+
+	// Pre-load popular genre/city combinations
+	for _, genre := range popularGenres {
+		go s.GetAllArtistsByGenre(ctx, genre) // Fire and forget
+	}
+
+	for _, city := range popularCities {
+		go s.GetArtistsByCity(ctx, city) // Fire and forget
+	}
 }
