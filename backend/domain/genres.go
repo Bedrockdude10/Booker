@@ -1,9 +1,6 @@
-package artists
+package domain
 
 import (
-	"context"
-	"strings"
-
 	"github.com/Bedrockdude10/Booker/backend/utils"
 )
 
@@ -121,63 +118,16 @@ var ValidGenres = utils.NewSet(
 	"world-music",
 )
 
-// ValidateGenres validates genres using the improved error handling
-func ValidateGenres(ctx context.Context, genres []string) *utils.AppError {
-	if len(genres) == 0 {
-		return utils.ValidationErrorLog(ctx, "At least one genre is required")
-	}
-
-	var invalid []string
-	for _, genre := range genres {
-		if !ValidGenres.Has(genre) {
-			invalid = append(invalid, genre)
-		}
-	}
-
-	if len(invalid) > 0 {
-		// Create helpful details with first few valid genres as examples
-		allGenres := GetAllGenres()
-		exampleCount := 5
-		if len(allGenres) < exampleCount {
-			exampleCount = len(allGenres)
-		}
-
-		details := "Invalid genres: " + strings.Join(invalid, ", ") +
-			". Examples of valid genres: " + strings.Join(allGenres[:exampleCount], ", ") + "..."
-
-		// Use Log function for custom attributes
-		return utils.Log(ctx,
-			utils.ValidationError("Invalid genres provided", details),
-			"Genre validation failed",
-			"invalid_genres", invalid,
-			"invalid_count", len(invalid),
-			"total_valid_genres", len(allGenres),
-		)
-	}
-
-	return nil
+// For validation
+func HasGenre(genre string) bool {
+	return ValidGenres.Has(genre)
 }
 
-// ValidateGenresSimple - for backward compatibility, returns standard error
-func ValidateGenresSimple(genres []string) error {
-	ctx := context.Background()
-	if appErr := ValidateGenres(ctx, genres); appErr != nil {
-		return appErr
-	}
-	return nil
-}
-
-// GetAllGenres returns all valid genre IDs
+// For frontend API
 func GetAllGenres() []string {
 	return ValidGenres.ToSlice()
 }
 
-// GetGenreCount returns total count of valid genres
 func GetGenreCount() int {
 	return ValidGenres.Size()
-}
-
-// HasGenre checks if a single genre is valid
-func HasGenre(genre string) bool {
-	return ValidGenres.Has(genre)
 }

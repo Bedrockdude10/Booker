@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/Bedrockdude10/Booker/backend/domain"
 	"github.com/Bedrockdude10/Booker/backend/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -64,9 +65,9 @@ func (s *Service) GetArtistByID(ctx context.Context, id primitive.ObjectID) (*Ar
 	return &artist, nil
 }
 
-// GetAllArtistsByGenre - same signature, improved error handling
+// GetAllArtistsByGenre - using domain package for validation
 func (s *Service) GetAllArtistsByGenre(ctx context.Context, genre string) ([]ArtistDocument, *utils.AppError) {
-	if !HasGenre(genre) {
+	if !domain.HasGenre(genre) {
 		return nil, utils.ValidationErrorLog(ctx, "Invalid genre", "Genre '"+genre+"' is not valid")
 	}
 
@@ -104,18 +105,13 @@ func (s *Service) GetArtistsByCity(ctx context.Context, city string) ([]ArtistDo
 	return results, nil
 }
 
-// CreateArtist - same signature, improved error handling
+// CreateArtist - cleaned up, validation moved to handler layer
 func (s *Service) CreateArtist(ctx context.Context, params CreateArtistParams) (*ArtistDocument, *utils.AppError) {
-	// Validate input
-	if params.Name == "" {
-		return nil, utils.ValidationErrorLog(ctx, "Artist name is required")
-	}
-	if len(params.Cities) == 0 {
-		return nil, utils.ValidationErrorLog(ctx, "At least one city is required")
-	}
-	if err := ValidateGenres(ctx, params.Genres); err != nil {
-		return nil, err
-	}
+	// No more manual validation - it's handled in the handler layer with struct tags!
+	// All this can be removed:
+	// if params.Name == "" { ... }
+	// if len(params.Cities) == 0 { ... }
+	// if err := ValidateGenres(ctx, params.Genres); err != nil { ... }
 
 	artist := ArtistDocument{
 		ID:        primitive.NewObjectID(),
@@ -137,13 +133,13 @@ func (s *Service) CreateArtist(ctx context.Context, params CreateArtistParams) (
 	return &artist, nil
 }
 
-// UpdateArtist - same signature, improved error handling
+// UpdateArtist - cleaned up, validation moved to handler layer
 func (s *Service) UpdateArtist(ctx context.Context, id primitive.ObjectID, params CreateArtistParams) (*ArtistDocument, *utils.AppError) {
-	if len(params.Genres) > 0 {
-		if err := ValidateGenres(ctx, params.Genres); err != nil {
-			return nil, err
-		}
-	}
+	// No more manual validation - handled by struct tags in handler
+	// This can be removed:
+	// if len(params.Genres) > 0 {
+	//     if err := ValidateGenres(ctx, params.Genres); err != nil { ... }
+	// }
 
 	updateFields := bson.M{
 		"name":      params.Name,
@@ -177,7 +173,7 @@ func (s *Service) UpdateArtist(ctx context.Context, id primitive.ObjectID, param
 	return &updatedArtist, nil
 }
 
-// UpdatePartialArtist - same signature, improved error handling
+// UpdatePartialArtist - cleaned up, validation moved to handler layer
 func (s *Service) UpdatePartialArtist(ctx context.Context, id primitive.ObjectID, params CreateArtistParams) (*ArtistDocument, *utils.AppError) {
 	updateFields := bson.M{}
 
@@ -185,9 +181,9 @@ func (s *Service) UpdatePartialArtist(ctx context.Context, id primitive.ObjectID
 		updateFields["name"] = params.Name
 	}
 	if len(params.Genres) > 0 {
-		if err := ValidateGenres(ctx, params.Genres); err != nil {
-			return nil, err
-		}
+		// No more manual validation - handled by struct tags in handler
+		// This can be removed:
+		// if err := ValidateGenres(ctx, params.Genres); err != nil { ... }
 		updateFields["genres"] = params.Genres
 	}
 	if params.Manager != "" {
@@ -257,9 +253,9 @@ func (s *Service) GetRecommendations() ([]ArtistDocument, error) {
 	return results, nil
 }
 
-// GetRecommendationsByGenre - updated to use environment variable for limit
+// GetRecommendationsByGenre - using domain package for validation
 func (s *Service) GetRecommendationsByGenre(genre string) ([]ArtistDocument, error) {
-	if !HasGenre(genre) {
+	if !domain.HasGenre(genre) {
 		return nil, utils.ValidationError("Invalid genre", "Genre '"+genre+"' is not valid")
 	}
 

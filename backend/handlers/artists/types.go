@@ -7,10 +7,10 @@ import (
 )
 
 type CreateArtistParams struct {
-	Name      string   `json:"name"`
-	Genres    []string `json:"genres"`
-	Manager   string   `json:"manager,omitempty"`
-	Cities    []string `json:"cities"`
+	Name      string   `json:"name" validate:"required,min=1,max=100"`
+	Genres    []string `json:"genres" validate:"required,min=1"`
+	Manager   string   `json:"manager,omitempty" validate:"omitempty,min=1,max=100"`
+	Cities    []string `json:"cities" validate:"required,min=1"`
 	SpotifyID string   `json:"spotifyId,omitempty"`
 }
 

@@ -3,6 +3,7 @@ package artists
 import (
 	"net/http"
 
+	"github.com/Bedrockdude10/Booker/backend/domain"
 	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -45,7 +46,7 @@ func Routes(r chi.Router, collections map[string]*mongo.Collection) {
 
 // Retrieves all genres
 func (h *Handler) GetAllGenres(w http.ResponseWriter, r *http.Request) {
-	genres := GetAllGenres()
+	genres := domain.GetAllGenres()
 
 	writeJSON(w, map[string]interface{}{
 		"data":  genres,
