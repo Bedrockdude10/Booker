@@ -1,37 +1,72 @@
 [
     {
       "name": "Taylor Swift",
-      "genres": ["Pop", "Country", "Folk"],
+      "genres": ["pop", "country", "folk"],
       "manager": "Tree Paine",
       "cities": ["Nashville", "New York", "Los Angeles"],
       "spotify_id": "06HL4z0CvFAxyc27GXpf02"
     },
     {
       "name": "The Weeknd",
-      "genres": ["R&B", "Pop", "Alternative R&B"],
+      "genres": ["r-n-b", "pop", "soul"],
       "manager": "Wassim Slaiby",
       "cities": ["Toronto", "Los Angeles"],
       "spotify_id": "1Xyo4u8uXC1ZmMpatF05PJ"
     },
     {
       "name": "Bad Bunny",
-      "genres": ["Reggaeton", "Latin Trap", "Urbano Latino"],
+      "genres": ["reggaeton", "latin", "latino"],
       "manager": "Noah Assad",
       "cities": ["San Juan", "Miami"],
       "spotify_id": "4q3ewBCX7sLwd24euuV69X"
     },
     {
       "name": "Billie Eilish",
-      "genres": ["Pop", "Alternative", "Electropop"],
+      "genres": ["pop", "alternative", "electronic"],
       "manager": "Danny Rukasin",
       "cities": ["Los Angeles"],
       "spotify_id": "6qqNVTkY8uBg9cP3Jd7DAH"
     },
     {
       "name": "Kendrick Lamar",
-      "genres": ["Hip Hop", "Rap", "Conscious Hip Hop"],
+      "genres": ["hip-hop", "funk", "soul"],
       "manager": "Dave Free",
       "cities": ["Compton", "Los Angeles"],
       "spotify_id": "2YZyLoL8N0Wb9xBt1NhZWg"
+    },
+    {
+      "name": "Daft Punk",
+      "genres": ["electronic", "house", "dance"],
+      "manager": "Paul-René Albertini",
+      "cities": ["Paris", "Los Angeles"],
+      "spotify_id": "4tZwfgrHOc3mvqYlEYSvVi"
+    },
+    {
+      "name": "Arctic Monkeys",
+      "genres": ["indie", "rock", "alternative"],
+      "manager": "Ian McAndrew",
+      "cities": ["Sheffield", "London"],
+      "spotify_id": "7Ln80lUS6He07XvHI8qqHH"
+    },
+    {
+      "name": "Deadmau5",
+      "genres": ["house", "techno", "progressive-house"],
+      "manager": "Dean Wilson",
+      "cities": ["Toronto", "Los Angeles"],
+      "spotify_id": "2CIMQHirSU0MQqyYHq0eOx"
+    },
+    {
+      "name": "Tame Impala",
+      "genres": ["psych-rock", "indie", "electronic"],
+      "manager": "Kevin Parker",
+      "cities": ["Perth", "Los Angeles"],
+      "spotify_id": "5INjqkS1o8h1imAzPqGZBb"
+    },
+    {
+      "name": "Miles Davis",
+      "genres": ["jazz", "blues", "soul"],
+      "manager": "Estate Representative",
+      "cities": ["New York", "Chicago"],
+      "spotify_id": "0kbYTNQb4Pb1rPbbaF0pT4"
     }
-  ]
+]
