@@ -2,7 +2,6 @@
 package artists
 
 import (
-	"github.com/dgraph-io/ristretto"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -39,5 +38,4 @@ Database layer of the application
 type Service struct {
 	artists         *mongo.Collection
 	userPreferences *mongo.Collection
-	cache           *ristretto.Cache
 }

@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Bedrockdude10/Booker/backend/cache"
 	"github.com/Bedrockdude10/Booker/backend/handlers/artists"
 	"github.com/Bedrockdude10/Booker/backend/utils"
 	"github.com/go-chi/chi/v5"
@@ -133,6 +134,11 @@ func run(stderr io.Writer, args []string) {
 	server := &http.Server{
 		Addr:    ":" + port,
 		Handler: r,
+	}
+
+	// Initialize cache
+	if err := cache.Init(); err != nil {
+		fatal(ctx, "Failed to initialize cache", err)
 	}
 
 	// Start server in a goroutine so it doesn't block

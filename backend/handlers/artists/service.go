@@ -8,9 +8,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Bedrockdude10/Booker/backend/cache"
 	"github.com/Bedrockdude10/Booker/backend/domain"
 	"github.com/Bedrockdude10/Booker/backend/utils"
-	"github.com/dgraph-io/ristretto"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -19,20 +20,9 @@ import (
 
 // NewService receives the map of collections and initializes the service
 func NewService(collections map[string]*mongo.Collection) *Service {
-	// Simple cache setup - works great with defaults
-	cache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e7,     // 10M counters
-		MaxCost:     1 << 28, // 256MB max
-		BufferItems: 64,      // Buffer size
-	})
-	if err != nil {
-		panic(err) // Handle appropriately
-	}
-
 	return &Service{
 		artists:         collections["artists"],
 		userPreferences: collections["userPreferences"],
-		cache:           cache,
 	}
 }
 
@@ -66,6 +56,16 @@ func (s *Service) GetArtists(ctx context.Context, page int, limit int) ([]Artist
 
 // GetArtistByID - same signature, improved error handling
 func (s *Service) GetArtistByID(ctx context.Context, id primitive.ObjectID) (*ArtistDocument, *utils.AppError) {
+	key := fmt.Sprintf("artist:%s", id.Hex())
+
+	// Try cache
+	if cached, found := cache.Get(key); found {
+		if artist, ok := cached.(*ArtistDocument); ok {
+			return artist, nil
+		}
+	}
+
+	// Fetch from DB (your existing logic)
 	var artist ArtistDocument
 	err := s.artists.FindOne(ctx, bson.M{"_id": id}).Decode(&artist)
 
@@ -76,26 +76,29 @@ func (s *Service) GetArtistByID(ctx context.Context, id primitive.ObjectID) (*Ar
 		return nil, utils.DatabaseErrorLog(ctx, "find artist by id", err)
 	}
 
+	// Cache for 30 minutes
+	cache.Set(key, &artist, 30*time.Minute)
+
 	return &artist, nil
 }
 
 // GetAllArtistsByGenre - using domain package for validation
 func (s *Service) GetAllArtistsByGenre(ctx context.Context, genre string) ([]ArtistDocument, *utils.AppError) {
-	cacheKey := fmt.Sprintf("artists:genre:%s", genre)
+	// Validate first
+	if !domain.HasGenre(genre) {
+		return nil, utils.ValidationErrorLog(ctx, "Invalid genre", "Genre '"+genre+"' is not valid")
+	}
 
-	// Try cache first
-	if cached, found := s.cache.Get(cacheKey); found {
+	key := fmt.Sprintf("artists:genre:%s", genre)
+
+	// Try cache
+	if cached, found := cache.Get(key); found {
 		if artists, ok := cached.([]ArtistDocument); ok {
 			return artists, nil
 		}
 	}
 
-	// Validate genre using your existing domain package
-	if !domain.HasGenre(genre) {
-		return nil, utils.ValidationErrorLog(ctx, "Invalid genre", "Genre '"+genre+"' is not valid")
-	}
-
-	// Fetch from MongoDB (your existing logic)
+	// Fetch from DB (your existing logic)
 	cursor, err := s.artists.Find(ctx, bson.M{"genres": genre})
 	if err != nil {
 		return nil, utils.DatabaseErrorLog(ctx, "find artists by genre", err)
@@ -107,8 +110,8 @@ func (s *Service) GetAllArtistsByGenre(ctx context.Context, genre string) ([]Art
 		return nil, utils.DatabaseErrorLog(ctx, "decode artists by genre", err)
 	}
 
-	// Cache the results (15 minutes TTL, cost = 1)
-	s.cache.SetWithTTL(cacheKey, results, 1, 15*time.Minute)
+	// Cache for 15 minutes
+	cache.Set(key, results, 15*time.Minute)
 
 	return results, nil
 }
@@ -121,16 +124,16 @@ func (s *Service) GetArtistsByCity(ctx context.Context, city string) ([]ArtistDo
 		return nil, utils.ValidationErrorLog(ctx, "City is required")
 	}
 
-	cacheKey := fmt.Sprintf("artists:city:%s", city)
+	key := fmt.Sprintf("artists:city:%s", city)
 
-	// Try cache first
-	if cached, found := s.cache.Get(cacheKey); found {
+	// Try cache
+	if cached, found := cache.Get(key); found {
 		if artists, ok := cached.([]ArtistDocument); ok {
 			return artists, nil
 		}
 	}
 
-	// Fetch from MongoDB
+	// Fetch from DB
 	cursor, err := s.artists.Find(ctx, bson.M{"cities": city})
 	if err != nil {
 		return nil, utils.DatabaseErrorLog(ctx, "find artists by city", err)
@@ -142,8 +145,8 @@ func (s *Service) GetArtistsByCity(ctx context.Context, city string) ([]ArtistDo
 		return nil, utils.DatabaseErrorLog(ctx, "decode artists by city", err)
 	}
 
-	// Cache for 10 minutes (cities change less frequently than genres)
-	s.cache.SetWithTTL(cacheKey, results, 1, 10*time.Minute)
+	// Cache for 10 minutes
+	cache.Set(key, results, 10*time.Minute)
 
 	return results, nil
 }
@@ -173,23 +176,15 @@ func (s *Service) CreateArtist(ctx context.Context, params CreateArtistParams) (
 		)
 	}
 
-	// Invalidate related caches
-	s.invalidateCaches(params.Genres, params.Cities)
+	// Simple cache invalidation
+	for _, genre := range params.Genres {
+		cache.Del(fmt.Sprintf("artists:genre:%s", genre))
+	}
+	for _, city := range params.Cities {
+		cache.Del(fmt.Sprintf("artists:city:%s", city))
+	}
 
 	return &artist, nil
-}
-
-// Helper function to invalidate caches
-func (s *Service) invalidateCaches(genres []string, cities []string) {
-	// Invalidate genre caches
-	for _, genre := range genres {
-		s.cache.Del(fmt.Sprintf("artists:genre:%s", genre))
-	}
-
-	// Invalidate city caches
-	for _, city := range cities {
-		s.cache.Del(fmt.Sprintf("artists:city:%s", city))
-	}
 }
 
 // UpdateArtist - cleaned up, validation moved to handler layer
