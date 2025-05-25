@@ -13,7 +13,9 @@ import (
 	"time"
 
 	"github.com/Bedrockdude10/Booker/backend/cache"
+	"github.com/Bedrockdude10/Booker/backend/handlers/accounts"
 	"github.com/Bedrockdude10/Booker/backend/handlers/artists"
+	"github.com/Bedrockdude10/Booker/backend/handlers/preferences"
 	"github.com/Bedrockdude10/Booker/backend/utils"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -121,8 +123,10 @@ func run(stderr io.Writer, args []string) {
 	// Add the error handling middleware to your router
 	r.Use(utils.ErrorHandleMiddleware)
 
-	// Mount artist routes
+	// Routes
+	accounts.Routes(r, collections)
 	artists.Routes(r, collections)
+	preferences.Routes(r, collections)
 
 	// Add a simple health check route
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
