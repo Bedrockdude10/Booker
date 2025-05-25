@@ -26,127 +26,22 @@ func NewService(collections map[string]*mongo.Collection) *Service {
 	}
 }
 
-// GetArtists - just improved error handling, same signature
-func (s *Service) GetArtists(ctx context.Context, page int, limit int) ([]ArtistDocument, int64, *utils.AppError) {
-	skip := (page - 1) * limit
+/////////////////////////////////////////////// ARTISTS
 
-	totalCount, err := s.artists.CountDocuments(ctx, bson.M{})
-	if err != nil {
-		return nil, 0, utils.DatabaseErrorLog(ctx, "count artists", err)
-	}
-
-	findOptions := options.Find().
-		SetLimit(int64(limit)).
-		SetSkip(int64(skip)).
-		SetSort(getDefaultSort())
+// GetArtists retrieves a list of artists from the database.
+func (s *Service) GetArtists(ctx context.Context) ([]ArtistDocument, *utils.AppError) {
+	findOptions := options.Find().SetSort(getDefaultSort())
 
 	cursor, err := s.artists.Find(ctx, bson.M{}, findOptions)
 	if err != nil {
-		return nil, 0, utils.DatabaseErrorLog(ctx, "find artists", err)
+		return nil, utils.DatabaseErrorLog(ctx, "find artists", err)
 	}
 	defer cursor.Close(ctx)
 
 	var results []ArtistDocument
 	if err := cursor.All(ctx, &results); err != nil {
-		return nil, 0, utils.DatabaseErrorLog(ctx, "decode artists", err)
+		return nil, utils.DatabaseErrorLog(ctx, "decode artists", err)
 	}
-
-	return results, totalCount, nil
-}
-
-// GetArtistByID - same signature, improved error handling
-func (s *Service) GetArtistByID(ctx context.Context, id primitive.ObjectID) (*ArtistDocument, *utils.AppError) {
-	key := fmt.Sprintf("artist:%s", id.Hex())
-
-	// Try cache
-	if cached, found := cache.Get(key); found {
-		if artist, ok := cached.(*ArtistDocument); ok {
-			return artist, nil
-		}
-	}
-
-	// Fetch from DB (your existing logic)
-	var artist ArtistDocument
-	err := s.artists.FindOne(ctx, bson.M{"_id": id}).Decode(&artist)
-
-	if err == mongo.ErrNoDocuments {
-		return nil, utils.NotFoundLog(ctx, "Artist")
-	}
-	if err != nil {
-		return nil, utils.DatabaseErrorLog(ctx, "find artist by id", err)
-	}
-
-	// Cache for 30 minutes
-	cache.Set(key, &artist, 30*time.Minute)
-
-	return &artist, nil
-}
-
-// GetAllArtistsByGenre - using domain package for validation
-func (s *Service) GetAllArtistsByGenre(ctx context.Context, genre string) ([]ArtistDocument, *utils.AppError) {
-	// Validate first
-	if !domain.HasGenre(genre) {
-		return nil, utils.ValidationErrorLog(ctx, "Invalid genre", "Genre '"+genre+"' is not valid")
-	}
-
-	key := fmt.Sprintf("artists:genre:%s", genre)
-
-	// Try cache
-	if cached, found := cache.Get(key); found {
-		if artists, ok := cached.([]ArtistDocument); ok {
-			return artists, nil
-		}
-	}
-
-	// Fetch from DB (your existing logic)
-	cursor, err := s.artists.Find(ctx, bson.M{"genres": genre})
-	if err != nil {
-		return nil, utils.DatabaseErrorLog(ctx, "find artists by genre", err)
-	}
-	defer cursor.Close(ctx)
-
-	var results []ArtistDocument
-	if err := cursor.All(ctx, &results); err != nil {
-		return nil, utils.DatabaseErrorLog(ctx, "decode artists by genre", err)
-	}
-
-	// Cache for 15 minutes
-	cache.Set(key, results, 15*time.Minute)
-
-	return results, nil
-}
-
-// GetArtistsByCity retrieves a list of artists based on the specified city.
-// It first checks the cache for the artists by city, and if not found, fetches them from MongoDB.
-// The results are cached for 10 minutes to improve performance.
-func (s *Service) GetArtistsByCity(ctx context.Context, city string) ([]ArtistDocument, *utils.AppError) {
-	if city == "" {
-		return nil, utils.ValidationErrorLog(ctx, "City is required")
-	}
-
-	key := fmt.Sprintf("artists:city:%s", city)
-
-	// Try cache
-	if cached, found := cache.Get(key); found {
-		if artists, ok := cached.([]ArtistDocument); ok {
-			return artists, nil
-		}
-	}
-
-	// Fetch from DB
-	cursor, err := s.artists.Find(ctx, bson.M{"cities": city})
-	if err != nil {
-		return nil, utils.DatabaseErrorLog(ctx, "find artists by city", err)
-	}
-	defer cursor.Close(ctx)
-
-	var results []ArtistDocument
-	if err := cursor.All(ctx, &results); err != nil {
-		return nil, utils.DatabaseErrorLog(ctx, "decode artists by city", err)
-	}
-
-	// Cache for 10 minutes
-	cache.Set(key, results, 10*time.Minute)
 
 	return results, nil
 }
@@ -287,6 +182,107 @@ func (s *Service) DeleteArtist(ctx context.Context, id primitive.ObjectID) *util
 
 	return nil
 }
+
+/////////////////////////////////////////////// CACHED ARTIST READ OPERATIONS
+
+// GetArtistByID - gets a single artist by ID, with caching
+func (s *Service) GetArtistByID(ctx context.Context, id primitive.ObjectID) (*ArtistDocument, *utils.AppError) {
+	key := fmt.Sprintf("artist:%s", id.Hex())
+
+	// Try cache
+	if cached, found := cache.Get(key); found {
+		if artist, ok := cached.(*ArtistDocument); ok {
+			return artist, nil
+		}
+	}
+
+	// Fetch from DB (your existing logic)
+	var artist ArtistDocument
+	err := s.artists.FindOne(ctx, bson.M{"_id": id}).Decode(&artist)
+
+	if err == mongo.ErrNoDocuments {
+		return nil, utils.NotFoundLog(ctx, "Artist")
+	}
+	if err != nil {
+		return nil, utils.DatabaseErrorLog(ctx, "find artist by id", err)
+	}
+
+	// Cache for 30 minutes
+	cache.Set(key, &artist, 30*time.Minute)
+
+	return &artist, nil
+}
+
+// GetAllArtistsByGenre - using domain package for validation
+func (s *Service) GetAllArtistsByGenre(ctx context.Context, genre string) ([]ArtistDocument, *utils.AppError) {
+	// Validate first
+	if !domain.HasGenre(genre) {
+		return nil, utils.ValidationErrorLog(ctx, "Invalid genre", "Genre '"+genre+"' is not valid")
+	}
+
+	key := fmt.Sprintf("artists:genre:%s", genre)
+
+	// Try cache
+	if cached, found := cache.Get(key); found {
+		if artists, ok := cached.([]ArtistDocument); ok {
+			return artists, nil
+		}
+	}
+
+	// Fetch from DB (your existing logic)
+	cursor, err := s.artists.Find(ctx, bson.M{"genres": genre})
+	if err != nil {
+		return nil, utils.DatabaseErrorLog(ctx, "find artists by genre", err)
+	}
+	defer cursor.Close(ctx)
+
+	var results []ArtistDocument
+	if err := cursor.All(ctx, &results); err != nil {
+		return nil, utils.DatabaseErrorLog(ctx, "decode artists by genre", err)
+	}
+
+	// Cache for 15 minutes
+	cache.Set(key, results, 15*time.Minute)
+
+	return results, nil
+}
+
+// GetArtistsByCity retrieves a list of artists based on the specified city.
+// It first checks the cache for the artists by city, and if not found, fetches them from MongoDB.
+// The results are cached for 10 minutes to improve performance.
+func (s *Service) GetArtistsByCity(ctx context.Context, city string) ([]ArtistDocument, *utils.AppError) {
+	if city == "" {
+		return nil, utils.ValidationErrorLog(ctx, "City is required")
+	}
+
+	key := fmt.Sprintf("artists:city:%s", city)
+
+	// Try cache
+	if cached, found := cache.Get(key); found {
+		if artists, ok := cached.([]ArtistDocument); ok {
+			return artists, nil
+		}
+	}
+
+	// Fetch from DB
+	cursor, err := s.artists.Find(ctx, bson.M{"cities": city})
+	if err != nil {
+		return nil, utils.DatabaseErrorLog(ctx, "find artists by city", err)
+	}
+	defer cursor.Close(ctx)
+
+	var results []ArtistDocument
+	if err := cursor.All(ctx, &results); err != nil {
+		return nil, utils.DatabaseErrorLog(ctx, "decode artists by city", err)
+	}
+
+	// Cache for 10 minutes
+	cache.Set(key, results, 10*time.Minute)
+
+	return results, nil
+}
+
+/////////////////////////////////////////////// RECOMMENDATIONS
 
 // GetRecommendations - updated to use environment variable for limit
 func (s *Service) GetRecommendations() ([]ArtistDocument, error) {

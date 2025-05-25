@@ -3,7 +3,6 @@ package artists
 
 import (
 	"encoding/json"
-	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -37,11 +36,11 @@ func (h *Handler) CreateArtist(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(artist)
 }
 
-// GetArtists - cleaner pagination handling
+// GetArtists handles the HTTP GET request to retrieve a list of artists.
 func (h *Handler) GetArtists(w http.ResponseWriter, r *http.Request) {
-	page, limit := parsePagination(r)
+	page, limit := parsePagination(r) // Parse the requested pagination parameters from the request
 
-	artists, total, appErr := h.service.GetArtists(r.Context(), page, limit)
+	artists, appErr := h.service.GetArtists(r.Context())
 	if appErr != nil {
 		utils.HandleError(w, appErr)
 		return
@@ -50,31 +49,14 @@ func (h *Handler) GetArtists(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"data": artists,
 		"meta": map[string]interface{}{
-			"page":       page,
-			"limit":      limit,
-			"total":      total,
-			"totalPages": int(math.Ceil(float64(total) / float64(limit))),
+			"page":    page,
+			"limit":   limit,
+			"count":   len(artists),          // Items on this page
+			"hasMore": len(artists) == limit, // Simple pagination indicator
 		},
 	}
 
 	writeJSON(w, response)
-}
-
-// GetArtist - much simpler
-func (h *Handler) GetArtist(w http.ResponseWriter, r *http.Request) {
-	id, appErr := parseObjectID(chi.URLParam(r, "id"))
-	if appErr != nil {
-		utils.HandleError(w, appErr)
-		return
-	}
-
-	artist, appErr := h.service.GetArtistByID(r.Context(), id)
-	if appErr != nil {
-		utils.HandleError(w, appErr)
-		return
-	}
-
-	writeJSON(w, artist)
 }
 
 // UpdateArtist - cleaner update
@@ -139,7 +121,9 @@ func (h *Handler) DeleteArtist(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// GetArtistsByGenre - simplified
+///////////////////////////////// READ OPERATIONS CACHED AT SERVICE LAYER
+
+// GetArtistsByGenre
 func (h *Handler) GetArtistsByGenre(w http.ResponseWriter, r *http.Request) {
 	genre := chi.URLParam(r, "genre")
 
@@ -155,7 +139,7 @@ func (h *Handler) GetArtistsByGenre(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetArtistsByCity - simplified
+// Gets list of artists by city
 func (h *Handler) GetArtistsByCity(w http.ResponseWriter, r *http.Request) {
 	city := chi.URLParam(r, "city")
 
@@ -169,6 +153,23 @@ func (h *Handler) GetArtistsByCity(w http.ResponseWriter, r *http.Request) {
 		"data": artists,
 		"city": city,
 	})
+}
+
+// Gets a single artist
+func (h *Handler) GetArtist(w http.ResponseWriter, r *http.Request) {
+	id, appErr := parseObjectID(chi.URLParam(r, "id"))
+	if appErr != nil {
+		utils.HandleError(w, appErr)
+		return
+	}
+
+	artist, appErr := h.service.GetArtistByID(r.Context(), id)
+	if appErr != nil {
+		utils.HandleError(w, appErr)
+		return
+	}
+
+	writeJSON(w, artist)
 }
 
 // Helper functions to reduce boilerplate
