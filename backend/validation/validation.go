@@ -18,6 +18,7 @@ func init() {
 
 	// Register your custom genre validator
 	validate.RegisterValidation("validgenres", validateGenres)
+	validate.RegisterValidation("validrole", validateRole) // Custom validator for roles during account creation
 }
 
 // Simple validation function
@@ -41,6 +42,12 @@ func validateGenres(fl validator.FieldLevel) bool {
 		}
 	}
 	return true
+}
+
+// Custom validator for roles
+func validateRole(fl validator.FieldLevel) bool {
+	role := fl.Field().String()
+	return domain.HasRole(role)
 }
 
 func formatError(err validator.FieldError) string {

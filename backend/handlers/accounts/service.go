@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Bedrockdude10/Booker/backend/domain"
 	"github.com/Bedrockdude10/Booker/backend/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -26,11 +27,26 @@ func NewService(collections map[string]*mongo.Collection) *Service {
 	}
 }
 
+// Helper function to check if role is valid
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
 //==============================================================================
 // CreateAccount - Creates a new user account
 //==============================================================================
 
 func (s *Service) CreateAccount(ctx context.Context, params CreateAccountParams) (*Account, *utils.AppError) {
+	// Validate role using the domain Set
+	if !domain.ValidRoles.Has(params.Role) {
+		return nil, utils.ValidationErrorLog(ctx, "Invalid role")
+	}
+
 	// Hash the password
 	hashedPassword, err := hashPassword(params.Password)
 	if err != nil {
@@ -123,6 +139,14 @@ func (s *Service) UpdateAccount(ctx context.Context, id primitive.ObjectID, para
 	// Validate ObjectID
 	if id.IsZero() {
 		return nil, utils.ValidationErrorLog(ctx, "Invalid account ID")
+	}
+
+	// Validate role if provided
+	if params.Role != "" {
+		// Validate role using the domain Set
+		if !domain.ValidRoles.Has(params.Role) {
+			return nil, utils.ValidationErrorLog(ctx, "Invalid role")
+		}
 	}
 
 	// Build update document dynamically based on provided fields
