@@ -200,7 +200,7 @@ func (s *Service) UpdateAccount(ctx context.Context, id primitive.ObjectID, para
 // Authentication helper methods
 //==============================================================================
 
-// VerifyPassword checks if the provided password matches the stored hash
+// VerifyPassword verifies the password for the given email and returns the corresponding account if successful.
 func (s *Service) VerifyPassword(ctx context.Context, email, password string) (*Account, *utils.AppError) {
 	// Get account by email
 	account, err := s.GetAccountByEmail(ctx, email)
