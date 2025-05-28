@@ -1,0 +1,92 @@
+[
+    {
+      "email": "sarah.martinez@musicpromo.com",
+      "passwordHash": "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
+      "role": "promoter",
+      "name": "Sarah Martinez",
+      "createdAt": "2024-01-15T09:30:00Z",
+      "updatedAt": "2024-01-15T09:30:00Z",
+      "isActive": true
+    },
+    {
+      "email": "mike.chen@gmail.com",
+      "passwordHash": "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
+      "role": "artist",
+      "name": "Mike Chen",
+      "createdAt": "2024-01-20T14:22:00Z",
+      "updatedAt": "2024-01-20T14:22:00Z",
+      "isActive": true
+    },
+    {
+      "email": "admin@booker.com",
+      "passwordHash": "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
+      "role": "admin",
+      "name": "System Administrator",
+      "createdAt": "2024-01-01T00:00:00Z",
+      "updatedAt": "2024-01-01T00:00:00Z",
+      "isActive": true
+    },
+    {
+      "email": "jessica.thompson@livemusic.co",
+      "passwordHash": "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
+      "role": "promoter",
+      "name": "Jessica Thompson",
+      "createdAt": "2024-02-03T11:45:00Z",
+      "updatedAt": "2024-02-10T16:30:00Z",
+      "isActive": true
+    },
+    {
+      "email": "alexrockstar@musicworld.net",
+      "passwordHash": "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
+      "role": "artist",
+      "name": "Alex Rodriguez",
+      "createdAt": "2024-02-08T19:15:00Z",
+      "updatedAt": "2024-02-08T19:15:00Z",
+      "isActive": true
+    },
+    {
+      "email": "david.wilson@concertking.com",
+      "passwordHash": "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
+      "role": "promoter",
+      "name": "David Wilson",
+      "createdAt": "2024-01-28T08:20:00Z",
+      "updatedAt": "2024-03-15T12:45:00Z",
+      "isActive": true
+    },
+    {
+      "email": "luna.beats@soundcloud.com",
+      "passwordHash": "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
+      "role": "artist",
+      "name": "Luna Beatworth",
+      "createdAt": "2024-02-14T13:30:00Z",
+      "updatedAt": "2024-02-20T10:15:00Z",
+      "isActive": true
+    },
+    {
+      "email": "marcus.events@nashville.com",
+      "passwordHash": "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
+      "role": "promoter",
+      "name": "Marcus Johnson",
+      "createdAt": "2024-01-10T07:45:00Z",
+      "updatedAt": "2024-03-01T14:20:00Z",
+      "isActive": true
+    },
+    {
+      "email": "zoe.indie@alternativemusic.org",
+      "passwordHash": "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
+      "role": "artist",
+      "name": "Zoe Anderson",
+      "createdAt": "2024-02-25T16:10:00Z",
+      "updatedAt": "2024-02-25T16:10:00Z",
+      "isActive": true
+    },
+    {
+      "email": "carlos.fiesta@latinfest.mx",
+      "passwordHash": "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
+      "role": "promoter",
+      "name": "Carlos Hernandez",
+      "createdAt": "2024-01-05T20:00:00Z",
+      "updatedAt": "2024-02-12T09:30:00Z",
+      "isActive": false
+    }
+  ]
