@@ -1,23 +1,30 @@
 // src/navigation/TabNavigator.tsx
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createBottomTabNavigator, BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
+import { RouteProp } from '@react-navigation/native';
 import { ArtistListScreen } from '../screens/ArtistListScreen';
 import { ArtistDetailScreen } from '../screens/ArtistDetailScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { theme } from '../styles';
-import { MainStackParamList, ArtistTabParamList } from '../types';
+import { MainStackParamList, ArtistTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<ArtistTabParamList>();
 const Stack = createStackNavigator<MainStackParamList>();
 
+// Type for tab bar icon props
+interface TabBarIconProps {
+  focused: boolean;
+  color: string;
+  size: number;
+}
+
 const ArtistTabNavigator = () => {
   return (
     <Tab.Navigator
-      id={"ArtistStack" as any}
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
+      screenOptions={({ route }: { route: RouteProp<ArtistTabParamList> }) => ({
+        tabBarIcon: ({ focused, color, size }: TabBarIconProps) => {
           let iconName: keyof typeof Ionicons.glyphMap;
 
           if (route.name === 'Discover') {
@@ -68,7 +75,6 @@ const ArtistTabNavigator = () => {
 export const TabNavigator = () => {
   return (
     <Stack.Navigator
-      id={"MainStack" as any}
       screenOptions={{
         headerStyle: {
           backgroundColor: theme.colors.surface,
@@ -87,7 +93,7 @@ export const TabNavigator = () => {
       <Stack.Screen 
         name="ArtistDetail" 
         component={ArtistDetailScreen}
-        options={({ route }) => ({
+        options={({ route }: StackScreenProps<MainStackParamList, 'ArtistDetail'>) => ({
           title: route.params?.artist?.name || 'Artist Details',
           headerBackTitle: 'Back',
         })}
