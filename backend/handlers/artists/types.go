@@ -23,14 +23,6 @@ type ArtistDocument struct {
 	SpotifyID string             `bson:"spotifyId,omitempty" json:"spotifyId,omitempty"`
 }
 
-// type UserPreference struct {
-// 	ID       primitive.ObjectID   `bson:"_id,omitempty" json:"_id,omitempty"`
-// 	UserID   primitive.ObjectID   `bson:"userId" json:"userId"`
-// 	Genres   []string             `bson:"genres" json:"genres"`
-// 	Artists  []primitive.ObjectID `bson:"artists" json:"artists"`
-// 	Location string               `bson:"location" json:"location"`
-// }
-
 /*
 Artist Service to be used by Artist Handler to interact with the
 Database layer of the application

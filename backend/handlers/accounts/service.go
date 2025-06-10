@@ -255,6 +255,33 @@ func (s *Service) UpdatePassword(ctx context.Context, id primitive.ObjectID, new
 	return nil
 }
 
+// ActivateAccount sets IsActive to true (reactivate deactivated account)
+func (s *Service) ActivateAccount(ctx context.Context, id primitive.ObjectID) *utils.AppError {
+	// Validate ObjectID
+	if id.IsZero() {
+		return utils.ValidationErrorLog(ctx, "Invalid account ID")
+	}
+
+	result, err := s.accounts.UpdateOne(
+		ctx,
+		bson.M{"_id": id},
+		bson.M{"$set": bson.M{
+			"isActive":  true,
+			"updatedAt": time.Now(),
+		}},
+	)
+
+	if err != nil {
+		return utils.DatabaseErrorLog(ctx, "activate account", err)
+	}
+
+	if result.MatchedCount == 0 {
+		return utils.NotFoundLog(ctx, "Account")
+	}
+
+	return nil
+}
+
 // DeactivateAccount sets IsActive to false (soft delete)
 func (s *Service) DeactivateAccount(ctx context.Context, id primitive.ObjectID) *utils.AppError {
 	// Validate ObjectID
