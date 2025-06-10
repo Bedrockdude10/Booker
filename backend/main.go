@@ -103,6 +103,7 @@ func run(stderr io.Writer, args []string) {
 		"artists":          db.Collection("artists"),
 		"userPreferences":  db.Collection("userPreferences"),
 		"userInteractions": db.Collection("userInteractions"),
+		"accounts":         db.Collection("accounts"),
 		// "trendingCache":    db.Collection("trendingCache"),
 	}
 

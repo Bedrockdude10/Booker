@@ -1,5 +1,5 @@
 //src/contexts/AuthContext.tsx
-import React, { createContext, useContext, useEffect, useReducer, PropsWithChildren } from 'react';
+import { createContext, useContext, useEffect, useReducer, ReactNode } from 'react';
 import { AuthState, User, LoginCredentials, SignupCredentials, AuthContextType } from '../types';
 import { apiService } from '../services/api';
 import { 
@@ -10,8 +10,6 @@ import {
   getUserData, 
   removeUserData 
 } from '../services/storage';
-
-// Import AuthContextType from types instead of defining it here
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -51,7 +49,7 @@ const initialState: AuthState = {
   isLoading: true,
 };
 
-export const AuthProvider = ({ children }: PropsWithChildren) => {
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   useEffect(() => {
@@ -80,10 +78,13 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       
       const response = await apiService.login(credentials);
       
-      await storeAuthToken(response.token);
+      // Ensure token is a string
+      const tokenString = typeof response.token === 'string' ? response.token : String(response.token);
+      
+      await storeAuthToken(tokenString);
       await storeUserData(JSON.stringify(response.user));
 
-      dispatch({ type: 'SET_USER', payload: response });
+      dispatch({ type: 'SET_USER', payload: { user: response.user, token: tokenString } });
     } catch (error) {
       dispatch({ type: 'SET_LOADING', payload: false });
       throw error;
@@ -96,10 +97,14 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       
       const response = await apiService.signup(credentials);
       
-      await storeAuthToken(response.token);
-      await storeUserData(JSON.stringify(response.user));
+      // Ensure token is a string and user data is properly serialized
+      const tokenString = typeof response.token === 'string' ? response.token : String(response.token);
+      const userDataString = JSON.stringify(response.user);
+      
+      await storeAuthToken(tokenString);
+      await storeUserData(userDataString);
 
-      dispatch({ type: 'SET_USER', payload: response });
+      dispatch({ type: 'SET_USER', payload: { user: response.user, token: tokenString } });
     } catch (error) {
       dispatch({ type: 'SET_LOADING', payload: false });
       throw error;
