@@ -16,6 +16,7 @@ import (
 	"github.com/Bedrockdude10/Booker/backend/handlers/accounts"
 	"github.com/Bedrockdude10/Booker/backend/handlers/artists"
 	"github.com/Bedrockdude10/Booker/backend/handlers/preferences"
+	"github.com/Bedrockdude10/Booker/backend/handlers/recommendations"
 	"github.com/Bedrockdude10/Booker/backend/utils"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -99,8 +100,10 @@ func run(stderr io.Writer, args []string) {
 	// Set up database and collections
 	db := client.Database("booker")
 	collections := map[string]*mongo.Collection{
-		"artists": db.Collection("artists"),
-		// "userPreferences": db.Collection("userPreferences"),
+		"artists":          db.Collection("artists"),
+		"userPreferences":  db.Collection("userPreferences"),
+		"userInteractions": db.Collection("userInteractions"),
+		// "trendingCache":    db.Collection("trendingCache"),
 	}
 
 	// Set up Chi router
@@ -127,6 +130,7 @@ func run(stderr io.Writer, args []string) {
 	accounts.Routes(r, collections)
 	artists.Routes(r, collections)
 	preferences.Routes(r, collections)
+	recommendations.Routes(r, collections)
 
 	// Add a simple health check route
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
