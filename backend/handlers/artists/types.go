@@ -15,12 +15,14 @@ type CreateArtistParams struct {
 }
 
 type ArtistDocument struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
-	Name      string             `bson:"name" json:"name"`
-	Genres    []string           `bson:"genres" json:"genres"`
-	Manager   string             `bson:"manager,omitempty" json:"manager,omitempty"`
-	Cities    []string           `bson:"cities" json:"cities"`
-	SpotifyID string             `bson:"spotifyId,omitempty" json:"spotifyId,omitempty"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
+	Name        string             `bson:"name" json:"name"`
+	Genres      []string           `bson:"genres" json:"genres"`
+	Manager     string             `bson:"manager,omitempty" json:"manager,omitempty"`
+	Cities      []string           `bson:"cities" json:"cities"`
+	SpotifyID   string             `bson:"spotifyId,omitempty" json:"spotifyId,omitempty"`
+	Rating      float64            `bson:"rating,omitempty" json:"rating,omitempty"`           // Average rating 0-5
+	RatingCount int                `bson:"ratingCount,omitempty" json:"ratingCount,omitempty"` // Number of ratings
 }
 
 /*

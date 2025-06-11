@@ -76,14 +76,33 @@ class ApiService {
     });
 
     if (params.filters?.genre?.length) {
-      queryParams.append('genre', params.filters.genre.join(','));
+      queryParams.append('genres', params.filters.genre.join(','));
     }
     if (params.filters?.location) {
-      queryParams.append('location', params.filters.location);
+      queryParams.append('locations', params.filters.location);
     }
 
-    return this.request(`/recommendations/user/${params.userId}?${queryParams}`);
-  }
+    const response: any = await this.request(`/recommendations/user/${params.userId}?${queryParams}`);
+    
+    // Extract and transform the artist data
+    return response.data?.map((item: any) => ({
+      id: item.artist._id,
+      name: item.artist.name,
+      genre: item.artist.genres,
+      location: item.artist.cities[0] || '',
+      bio: item.artist.manager ? `Managed by ${item.artist.manager}` : 'No bio available',
+      imageUrl: undefined,
+      rating: undefined,
+      bookingRate: undefined,
+      contactInfo: {
+        email: '',
+        phone: '',
+        website: '',
+        social: {}
+      },
+      createdAt: new Date().toISOString(),
+    })) || [];
+}
 
   async getArtistsByGenre(genre: string): Promise<Artist[]> {
     return this.request(`/recommendations/genre/${encodeURIComponent(genre)}`);

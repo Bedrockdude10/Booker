@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"strings"
+
 	"github.com/Bedrockdude10/Booker/backend/utils"
 )
 
@@ -120,7 +122,8 @@ var ValidGenres = utils.NewSet(
 
 // For validation
 func HasGenre(genre string) bool {
-	return ValidGenres.Has(genre)
+	normalized := strings.ToLower(strings.TrimSpace(genre))
+	return ValidGenres.Has(normalized)
 }
 
 // For frontend API

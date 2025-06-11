@@ -1,4 +1,4 @@
-// handlers/recommendations/types.go
+// handlers/recommendations/types.go - Updated with filtering support
 package recommendations
 
 import (
@@ -8,13 +8,31 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// RecommendationParams for generating recommendations
+// RecommendationParams for generating recommendations (legacy - kept for compatibility)
 type RecommendationParams struct {
 	UserID  primitive.ObjectID   `json:"userId,omitempty"`
 	Genres  []string             `json:"genres,omitempty"`
 	Cities  []string             `json:"cities,omitempty"`
 	Limit   int                  `json:"limit,omitempty"`
 	Exclude []primitive.ObjectID `json:"exclude,omitempty"` // Artists to exclude
+}
+
+// Enhanced RecommendationParams with filtering
+type EnhancedRecommendationParams struct {
+	UserID  primitive.ObjectID    `json:"userId,omitempty"`
+	Filters RecommendationFilters `json:"filters,omitempty"`
+	Limit   int                   `json:"limit,omitempty"`
+	Offset  int                   `json:"offset,omitempty"`
+}
+
+// RecommendationFilters for filtering recommendations
+type RecommendationFilters struct {
+	Genres     []string `json:"genres,omitempty"`
+	Cities     []string `json:"cities,omitempty"`
+	MinRating  float64  `json:"minRating,omitempty"`
+	MaxRating  float64  `json:"maxRating,omitempty"`
+	HasManager *bool    `json:"hasManager,omitempty"`
+	HasSpotify *bool    `json:"hasSpotify,omitempty"`
 }
 
 // RecommendationResult represents a recommended artist with scoring
@@ -27,8 +45,9 @@ type RecommendationResult struct {
 type RecommendationResponse struct {
 	Data        []RecommendationResult `json:"data"`
 	Total       int                    `json:"total"`
-	RequestedBy string                 `json:"requestedBy,omitempty"` // "user", "genre", "city"
+	RequestedBy string                 `json:"requestedBy,omitempty"` // "user", "genre", "city", "general", "filtered"
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	HasMore     bool                   `json:"hasMore,omitempty"`
 }
 
 // UserInteraction tracks user behavior for better recommendations
@@ -62,14 +81,16 @@ type TrendingCache struct {
 	ExpiresAt  time.Time            `bson:"expiresAt"`
 }
 
-// ArtistDocument mirrors the artist structure (import from artists package in real implementation)
+// ArtistDocument mirrors the artist structure with rating support
 type ArtistDocument struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
-	Name      string             `bson:"name" json:"name"`
-	Genres    []string           `bson:"genres" json:"genres"`
-	Manager   string             `bson:"manager,omitempty" json:"manager,omitempty"`
-	Cities    []string           `bson:"cities" json:"cities"`
-	SpotifyID string             `bson:"spotifyId,omitempty" json:"spotifyId,omitempty"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
+	Name        string             `bson:"name" json:"name"`
+	Genres      []string           `bson:"genres" json:"genres"`
+	Manager     string             `bson:"manager,omitempty" json:"manager,omitempty"`
+	Cities      []string           `bson:"cities" json:"cities"`
+	SpotifyID   string             `bson:"spotifyId,omitempty" json:"spotifyId,omitempty"`
+	Rating      float64            `bson:"rating,omitempty" json:"rating,omitempty"`           // Average rating 0-5
+	RatingCount int                `bson:"ratingCount,omitempty" json:"ratingCount,omitempty"` // Number of ratings
 }
 
 // UserPreference mirrors the preference structure

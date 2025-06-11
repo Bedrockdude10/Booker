@@ -89,3 +89,29 @@ export type ArtistTabParamList = {
 Discover: undefined;
 Profile: undefined;
 };
+
+export interface BackendArtist {
+  _id: string;
+  name: string;
+  genres: string[];
+  manager?: string;
+  cities: string[];
+  spotifyId?: string;
+}
+
+export interface RecommendationResult {
+  artist: BackendArtist;
+  score: number;
+}
+
+export interface RecommendationResponse {
+  data: RecommendationResult[];
+  total: number;
+  requestedBy: string;
+  metadata?: {
+    userId?: string;
+    basedOn?: string;
+    reason?: string;
+    [key: string]: any;
+  };
+}

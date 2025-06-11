@@ -1,4 +1,4 @@
-// handlers/recommendations/service.go
+// handlers/recommendations/service.go - Unified service with filtering built-in
 package recommendations
 
 import (
@@ -28,231 +28,265 @@ func NewService(collections map[string]*mongo.Collection) *Service {
 }
 
 //==============================================================================
-// Main Recommendation Methods
+// Unified Recommendation Methods - All Support Filtering
 //==============================================================================
 
-// GetPersonalizedRecommendations generates recommendations for a specific user
-func (s *Service) GetPersonalizedRecommendations(ctx context.Context, userID primitive.ObjectID, limit int) (*RecommendationResponse, *utils.AppError) {
-	if limit <= 0 {
-		limit = 10
+// GetPersonalizedRecommendations generates personalized recommendations with filtering
+func (s *Service) GetPersonalizedRecommendations(ctx context.Context, params EnhancedRecommendationParams) (*RecommendationResponse, *utils.AppError) {
+	if params.Limit <= 0 {
+		params.Limit = 10
 	}
 
 	// Get user preferences
-	prefs, err := s.getUserPreferences(ctx, userID)
+	prefs, err := s.getUserPreferences(ctx, params.UserID)
 	if err != nil {
-		// If no preferences, return general recommendations
-		return s.GetGeneralRecommendations(ctx, limit)
+		// If no preferences, use general recommendations with filters
+		return s.GetGeneralRecommendations(ctx, params)
 	}
 
+	// Merge user preferences with explicit filters
+	mergedFilters := s.mergeUserPreferencesWithFilters(prefs, params.Filters)
+
 	// Get user interactions to exclude already seen artists
-	interactions, _ := s.getUserInteractions(ctx, userID, 100) // Get recent interactions
+	interactions, _ := s.getUserInteractions(ctx, params.UserID, 100)
 	excludeArtists := make([]primitive.ObjectID, 0)
 	for _, interaction := range interactions {
 		excludeArtists = append(excludeArtists, interaction.ArtistID)
 	}
 
-	// Generate recommendations based on preferences
-	params := RecommendationParams{
-		UserID:  userID,
-		Genres:  prefs.PreferredGenres,
-		Cities:  prefs.PreferredCities,
-		Limit:   limit * 2, // Get more to filter and rank
-		Exclude: excludeArtists,
+	// Build filter query with exclusions
+	filterQuery := s.buildFilterQuery(mergedFilters)
+	if len(excludeArtists) > 0 {
+		if filterQuery == nil {
+			filterQuery = bson.M{}
+		}
+		filterQuery["_id"] = bson.M{"$nin": excludeArtists}
 	}
 
-	recommendations, appErr := s.generateRecommendations(ctx, params)
+	// Execute query
+	artists, appErr := s.findArtistsWithFilter(ctx, filterQuery, params.Limit*2, params.Offset)
 	if appErr != nil {
 		return nil, appErr
 	}
 
-	// Score and rank recommendations
-	scoredRecommendations := s.scoreRecommendations(ctx, recommendations, prefs, interactions)
+	// Score based on user preferences and filters
+	personalizedResults := s.scorePersonalizedRecommendations(ctx, artists, prefs, interactions, params.Filters)
 
 	// Limit results
-	if len(scoredRecommendations) > limit {
-		scoredRecommendations = scoredRecommendations[:limit]
+	if len(personalizedResults) > params.Limit {
+		personalizedResults = personalizedResults[:params.Limit]
 	}
 
 	return &RecommendationResponse{
-		Data:        scoredRecommendations,
-		Total:       len(scoredRecommendations),
+		Data:        personalizedResults,
+		Total:       len(personalizedResults),
 		RequestedBy: "user",
+		HasMore:     len(personalizedResults) == params.Limit,
 		Metadata: map[string]interface{}{
-			"userId":  userID.Hex(),
-			"basedOn": "preferences",
+			"userId":  params.UserID.Hex(),
+			"basedOn": "preferences_and_filters",
+			"filters": params.Filters,
+			"preferences": map[string]interface{}{
+				"genres": prefs.PreferredGenres,
+				"cities": prefs.PreferredCities,
+			},
 		},
 	}, nil
 }
 
-// GetRecommendationsByGenre returns recommendations for a specific genre
-func (s *Service) GetRecommendationsByGenre(ctx context.Context, genre string, limit int) (*RecommendationResponse, *utils.AppError) {
-	if !domain.HasGenre(genre) {
-		return nil, utils.ValidationError("Invalid genre")
+// GetRecommendationsByGenre returns recommendations for a specific genre with filtering
+func (s *Service) GetRecommendationsByGenre(ctx context.Context, params EnhancedRecommendationParams) (*RecommendationResponse, *utils.AppError) {
+	if params.Limit <= 0 {
+		params.Limit = 10
+	}
+
+	// Validate that we have at least one genre
+	if len(params.Filters.Genres) == 0 {
+		return nil, utils.ValidationError("Genre filter is required")
+	}
+
+	// Validate genres
+	for _, genre := range params.Filters.Genres {
+		if !domain.HasGenre(genre) {
+			return nil, utils.ValidationError("Invalid genre: " + genre)
+		}
 	}
 
 	// Check cache first
-	cacheKey := fmt.Sprintf("recs:genre:%s:limit:%d", genre, limit)
+	cacheKey := fmt.Sprintf("recs:genre:%+v:filters:%+v", params.Filters.Genres, params.Filters)
 	if cached, found := cache.Get(cacheKey); found {
 		if response, ok := cached.(*RecommendationResponse); ok {
 			return response, nil
 		}
 	}
 
-	// Get artists for this genre
-	artists, appErr := s.getArtistsByGenre(ctx, genre, limit*2)
+	// Build filter query and execute
+	filterQuery := s.buildFilterQuery(params.Filters)
+	artists, appErr := s.findArtistsWithFilter(ctx, filterQuery, params.Limit*2, params.Offset)
 	if appErr != nil {
 		return nil, appErr
 	}
 
-	// Convert to recommendation results
+	// Convert to recommendation results and score
 	recommendations := make([]RecommendationResult, 0, len(artists))
 	for _, artist := range artists {
-		recommendations = append(recommendations, RecommendationResult{
-			Artist: artist,
-			Score:  1.0, // Base score for genre match
-		})
-	}
-
-	// Add trending boost
-	recommendations = s.addTrendingBoost(ctx, recommendations)
-
-	// Sort by score and limit
-	sort.Slice(recommendations, func(i, j int) bool {
-		return recommendations[i].Score > recommendations[j].Score
-	})
-
-	if len(recommendations) > limit {
-		recommendations = recommendations[:limit]
-	}
-
-	response := &RecommendationResponse{
-		Data:        recommendations,
-		Total:       len(recommendations),
-		RequestedBy: "genre",
-		Metadata: map[string]interface{}{
-			"genre": genre,
-		},
-	}
-
-	// Cache for 30 minutes
-	cache.Set(cacheKey, response, 30*time.Minute)
-
-	return response, nil
-}
-
-// GetRecommendationsByCity returns recommendations for a specific city
-func (s *Service) GetRecommendationsByCity(ctx context.Context, city string, limit int) (*RecommendationResponse, *utils.AppError) {
-	// Check cache first
-	cacheKey := fmt.Sprintf("recs:city:%s:limit:%d", city, limit)
-	if cached, found := cache.Get(cacheKey); found {
-		if response, ok := cached.(*RecommendationResponse); ok {
-			return response, nil
-		}
-	}
-
-	// Get artists for this city
-	artists, appErr := s.getArtistsByCity(ctx, city, limit*2)
-	if appErr != nil {
-		return nil, appErr
-	}
-
-	// Convert to recommendation results
-	recommendations := make([]RecommendationResult, 0, len(artists))
-	for _, artist := range artists {
-		recommendations = append(recommendations, RecommendationResult{
-			Artist: artist,
-			Score:  1.0, // Base score for city match
-		})
-	}
-
-	// Add trending boost
-	recommendations = s.addTrendingBoost(ctx, recommendations)
-
-	// Sort by score and limit
-	sort.Slice(recommendations, func(i, j int) bool {
-		return recommendations[i].Score > recommendations[j].Score
-	})
-
-	if len(recommendations) > limit {
-		recommendations = recommendations[:limit]
-	}
-
-	response := &RecommendationResponse{
-		Data:        recommendations,
-		Total:       len(recommendations),
-		RequestedBy: "city",
-		Metadata: map[string]interface{}{
-			"city": city,
-		},
-	}
-
-	// Cache for 30 minutes
-	cache.Set(cacheKey, response, 30*time.Minute)
-
-	return response, nil
-}
-
-// GetGeneralRecommendations returns general recommendations (trending, popular)
-func (s *Service) GetGeneralRecommendations(ctx context.Context, limit int) (*RecommendationResponse, *utils.AppError) {
-	// Check cache first
-	cacheKey := fmt.Sprintf("recs:general:limit:%d", limit)
-	if cached, found := cache.Get(cacheKey); found {
-		if response, ok := cached.(*RecommendationResponse); ok {
-			return response, nil
-		}
-	}
-
-	// Get trending artists
-	trending, _ := s.getTrendingArtists(ctx, limit/2)
-
-	// Get random selection of artists
-	random, appErr := s.getRandomArtists(ctx, limit-len(trending))
-	if appErr != nil {
-		return nil, appErr
-	}
-
-	// Combine recommendations
-	recommendations := make([]RecommendationResult, 0, len(trending)+len(random))
-
-	// Add trending with higher scores
-	for i, artist := range trending {
-		score := 1.0 + (0.5 * float64(len(trending)-i) / float64(len(trending))) // Boost trending
+		score := s.calculateFilteredScore(artist, params.Filters)
 		recommendations = append(recommendations, RecommendationResult{
 			Artist: artist,
 			Score:  score,
 		})
 	}
 
-	// Add random artists
-	for _, artist := range random {
-		recommendations = append(recommendations, RecommendationResult{
-			Artist: artist,
-			Score:  0.5, // Lower score for random
-		})
-	}
-
-	// Sort by score
+	// Add trending boost and sort
+	recommendations = s.addTrendingBoost(ctx, recommendations)
 	sort.Slice(recommendations, func(i, j int) bool {
 		return recommendations[i].Score > recommendations[j].Score
 	})
+
+	// Limit results
+	if len(recommendations) > params.Limit {
+		recommendations = recommendations[:params.Limit]
+	}
+
+	response := &RecommendationResponse{
+		Data:        recommendations,
+		Total:       len(recommendations),
+		RequestedBy: "genre",
+		HasMore:     len(recommendations) == params.Limit,
+		Metadata: map[string]interface{}{
+			"genres":  params.Filters.Genres,
+			"filters": params.Filters,
+		},
+	}
+
+	// Cache for 30 minutes
+	cache.Set(cacheKey, response, 30*time.Minute)
+	return response, nil
+}
+
+// GetRecommendationsByCity returns recommendations for a specific city with filtering
+func (s *Service) GetRecommendationsByCity(ctx context.Context, params EnhancedRecommendationParams) (*RecommendationResponse, *utils.AppError) {
+	if params.Limit <= 0 {
+		params.Limit = 10
+	}
+
+	// Validate that we have at least one city
+	if len(params.Filters.Cities) == 0 {
+		return nil, utils.ValidationError("City filter is required")
+	}
+
+	// Check cache first
+	cacheKey := fmt.Sprintf("recs:city:%+v:filters:%+v", params.Filters.Cities, params.Filters)
+	if cached, found := cache.Get(cacheKey); found {
+		if response, ok := cached.(*RecommendationResponse); ok {
+			return response, nil
+		}
+	}
+
+	// Build filter query and execute
+	filterQuery := s.buildFilterQuery(params.Filters)
+	artists, appErr := s.findArtistsWithFilter(ctx, filterQuery, params.Limit*2, params.Offset)
+	if appErr != nil {
+		return nil, appErr
+	}
+
+	// Convert to recommendation results and score
+	recommendations := make([]RecommendationResult, 0, len(artists))
+	for _, artist := range artists {
+		score := s.calculateFilteredScore(artist, params.Filters)
+		recommendations = append(recommendations, RecommendationResult{
+			Artist: artist,
+			Score:  score,
+		})
+	}
+
+	// Add trending boost and sort
+	recommendations = s.addTrendingBoost(ctx, recommendations)
+	sort.Slice(recommendations, func(i, j int) bool {
+		return recommendations[i].Score > recommendations[j].Score
+	})
+
+	// Limit results
+	if len(recommendations) > params.Limit {
+		recommendations = recommendations[:params.Limit]
+	}
+
+	response := &RecommendationResponse{
+		Data:        recommendations,
+		Total:       len(recommendations),
+		RequestedBy: "city",
+		HasMore:     len(recommendations) == params.Limit,
+		Metadata: map[string]interface{}{
+			"cities":  params.Filters.Cities,
+			"filters": params.Filters,
+		},
+	}
+
+	// Cache for 30 minutes
+	cache.Set(cacheKey, response, 30*time.Minute)
+	return response, nil
+}
+
+// GetGeneralRecommendations returns general recommendations with filtering
+func (s *Service) GetGeneralRecommendations(ctx context.Context, params EnhancedRecommendationParams) (*RecommendationResponse, *utils.AppError) {
+	if params.Limit <= 0 {
+		params.Limit = 10
+	}
+
+	// Check cache first
+	cacheKey := fmt.Sprintf("recs:general:filters:%+v:limit:%d", params.Filters, params.Limit)
+	if cached, found := cache.Get(cacheKey); found {
+		if response, ok := cached.(*RecommendationResponse); ok {
+			return response, nil
+		}
+	}
+
+	// Build filter query and execute
+	filterQuery := s.buildFilterQuery(params.Filters)
+	artists, appErr := s.findArtistsWithFilter(ctx, filterQuery, params.Limit*2, params.Offset)
+	if appErr != nil {
+		return nil, appErr
+	}
+
+	// Convert to recommendation results
+	recommendations := make([]RecommendationResult, 0, len(artists))
+	for _, artist := range artists {
+		score := s.calculateFilteredScore(artist, params.Filters)
+		recommendations = append(recommendations, RecommendationResult{
+			Artist: artist,
+			Score:  score,
+		})
+	}
+
+	// Add trending boost and sort
+	recommendations = s.addTrendingBoost(ctx, recommendations)
+	sort.Slice(recommendations, func(i, j int) bool {
+		return recommendations[i].Score > recommendations[j].Score
+	})
+
+	// Limit results
+	if len(recommendations) > params.Limit {
+		recommendations = recommendations[:params.Limit]
+	}
 
 	response := &RecommendationResponse{
 		Data:        recommendations,
 		Total:       len(recommendations),
 		RequestedBy: "general",
+		HasMore:     len(recommendations) == params.Limit,
 		Metadata: map[string]interface{}{
-			"type": "trending_and_discovery",
+			"type":    "discovery",
+			"filters": params.Filters,
 		},
 	}
 
 	// Cache for 15 minutes
 	cache.Set(cacheKey, response, 15*time.Minute)
-
 	return response, nil
 }
 
 //==============================================================================
-// User Interaction Methods
+// User Interaction Methods (unchanged)
 //==============================================================================
 
 // TrackInteraction logs a user interaction with an artist
@@ -283,7 +317,254 @@ func (s *Service) GetUserInteractions(ctx context.Context, userID primitive.Obje
 }
 
 //==============================================================================
-// Helper Methods
+// Helper Methods for Filtering
+//==============================================================================
+
+// buildFilterQuery constructs MongoDB filter based on RecommendationFilters
+func (s *Service) buildFilterQuery(filters RecommendationFilters) bson.M {
+	query := bson.M{}
+	andConditions := []bson.M{}
+
+	// Genre filtering (OR logic within genres)
+	if len(filters.Genres) > 0 {
+		andConditions = append(andConditions, bson.M{
+			"genres": bson.M{"$in": filters.Genres},
+		})
+	}
+
+	// City filtering (OR logic within cities)
+	if len(filters.Cities) > 0 {
+		andConditions = append(andConditions, bson.M{
+			"cities": bson.M{"$in": filters.Cities},
+		})
+	}
+
+	// Rating filtering
+	if filters.MinRating > 0 || filters.MaxRating > 0 {
+		ratingQuery := bson.M{}
+		if filters.MinRating > 0 {
+			ratingQuery["$gte"] = filters.MinRating
+		}
+		if filters.MaxRating > 0 {
+			ratingQuery["$lte"] = filters.MaxRating
+		}
+		andConditions = append(andConditions, bson.M{
+			"rating": ratingQuery,
+		})
+	}
+
+	// Manager filtering
+	if filters.HasManager != nil {
+		if *filters.HasManager {
+			andConditions = append(andConditions, bson.M{
+				"manager": bson.M{"$exists": true, "$ne": ""},
+			})
+		} else {
+			andConditions = append(andConditions, bson.M{
+				"$or": []bson.M{
+					{"manager": bson.M{"$exists": false}},
+					{"manager": ""},
+				},
+			})
+		}
+	}
+
+	// Spotify filtering
+	if filters.HasSpotify != nil {
+		if *filters.HasSpotify {
+			andConditions = append(andConditions, bson.M{
+				"spotifyId": bson.M{"$exists": true, "$ne": ""},
+			})
+		} else {
+			andConditions = append(andConditions, bson.M{
+				"$or": []bson.M{
+					{"spotifyId": bson.M{"$exists": false}},
+					{"spotifyId": ""},
+				},
+			})
+		}
+	}
+
+	// Combine all conditions
+	if len(andConditions) > 0 {
+		query["$and"] = andConditions
+	}
+
+	return query
+}
+
+// findArtistsWithFilter executes the database query with filters
+func (s *Service) findArtistsWithFilter(ctx context.Context, filter bson.M, limit, offset int) ([]ArtistDocument, *utils.AppError) {
+	opts := options.Find()
+	if limit > 0 {
+		opts.SetLimit(int64(limit))
+	}
+	if offset > 0 {
+		opts.SetSkip(int64(offset))
+	}
+	opts.SetSort(bson.M{"name": 1}) // Default sort
+
+	cursor, err := s.artists.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, utils.DatabaseError("find artists with filter", err)
+	}
+	defer cursor.Close(ctx)
+
+	var artists []ArtistDocument
+	if err := cursor.All(ctx, &artists); err != nil {
+		return nil, utils.DatabaseError("decode artists with filter", err)
+	}
+
+	return artists, nil
+}
+
+// mergeUserPreferencesWithFilters combines user preferences with explicit filters
+func (s *Service) mergeUserPreferencesWithFilters(prefs *UserPreference, filters RecommendationFilters) RecommendationFilters {
+	merged := filters // Start with explicit filters
+
+	// Add user preferred genres if no explicit genres provided
+	if len(filters.Genres) == 0 && len(prefs.PreferredGenres) > 0 {
+		merged.Genres = prefs.PreferredGenres
+	}
+
+	// Add user preferred cities if no explicit cities provided
+	if len(filters.Cities) == 0 && len(prefs.PreferredCities) > 0 {
+		merged.Cities = prefs.PreferredCities
+	}
+
+	// Note: MinRating is not stored in user preferences currently
+	// If you want to add this feature, add MinRating field to UserPreference type
+
+	return merged
+}
+
+// calculateFilteredScore calculates score based on how well an artist matches filters
+func (s *Service) calculateFilteredScore(artist ArtistDocument, filters RecommendationFilters) float64 {
+	score := 1.0 // Base score
+
+	// Genre match boost
+	if len(filters.Genres) > 0 {
+		genreMatches := 0
+		for _, artistGenre := range artist.Genres {
+			for _, filterGenre := range filters.Genres {
+				if artistGenre == filterGenre {
+					genreMatches++
+					break
+				}
+			}
+		}
+		score += float64(genreMatches) * 0.3
+	}
+
+	// City match boost
+	if len(filters.Cities) > 0 {
+		cityMatches := 0
+		for _, artistCity := range artist.Cities {
+			for _, filterCity := range filters.Cities {
+				if artistCity == filterCity {
+					cityMatches++
+					break
+				}
+			}
+		}
+		score += float64(cityMatches) * 0.2
+	}
+
+	// Rating boost (if artist has high rating)
+	if artist.Rating > 4.0 {
+		score += (artist.Rating - 4.0) * 0.2
+	}
+
+	// Manager boost
+	if filters.HasManager != nil && *filters.HasManager && artist.Manager != "" {
+		score += 0.1
+	}
+
+	// Spotify boost
+	if filters.HasSpotify != nil && *filters.HasSpotify && artist.SpotifyID != "" {
+		score += 0.1
+	}
+
+	return score
+}
+
+// scorePersonalizedRecommendations scores recommendations based on user preferences + filters
+func (s *Service) scorePersonalizedRecommendations(ctx context.Context, artists []ArtistDocument, prefs *UserPreference, interactions []UserInteraction, filters RecommendationFilters) []RecommendationResult {
+	results := make([]RecommendationResult, 0, len(artists))
+
+	for _, artist := range artists {
+		// Start with filter-based score
+		score := s.calculateFilteredScore(artist, filters)
+
+		// Add personalization boost
+		score += s.calculatePersonalizationScore(artist, prefs, interactions)
+
+		results = append(results, RecommendationResult{
+			Artist: artist,
+			Score:  score,
+		})
+	}
+
+	// Sort by score (highest first)
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Score > results[j].Score
+	})
+
+	return results
+}
+
+// calculatePersonalizationScore calculates additional score based on user preferences
+func (s *Service) calculatePersonalizationScore(artist ArtistDocument, prefs *UserPreference, interactions []UserInteraction) float64 {
+	score := 0.0
+
+	// Preference-based scoring
+	genreMatches := 0
+	for _, genre := range artist.Genres {
+		for _, prefGenre := range prefs.PreferredGenres {
+			if genre == prefGenre {
+				genreMatches++
+				break
+			}
+		}
+	}
+	score += float64(genreMatches) * 0.4 // 40% weight for preferred genres
+
+	cityMatches := 0
+	for _, city := range artist.Cities {
+		for _, prefCity := range prefs.PreferredCities {
+			if city == prefCity {
+				cityMatches++
+				break
+			}
+		}
+	}
+	score += float64(cityMatches) * 0.3 // 30% weight for preferred cities
+
+	// Favorite artists boost
+	for _, favArtist := range prefs.FavoriteArtists {
+		if favArtist == artist.ID {
+			score += 1.0 // Big boost for favorites
+			break
+		}
+	}
+
+	// Interaction history penalty (to avoid showing same artists)
+	for _, interaction := range interactions {
+		if interaction.ArtistID == artist.ID {
+			switch interaction.Type {
+			case InteractionSkip:
+				score -= 0.3 // Reduce score for skipped artists
+			case InteractionView:
+				score -= 0.1 // Small penalty for already viewed
+			}
+		}
+	}
+
+	return math.Max(0, score) // Ensure non-negative score
+}
+
+//==============================================================================
+// Other Helper Methods (unchanged from original)
 //==============================================================================
 
 // getUserPreferences retrieves user preferences
@@ -321,121 +602,6 @@ func (s *Service) getUserInteractions(ctx context.Context, userID primitive.Obje
 	return interactions, nil
 }
 
-// generateRecommendations generates basic recommendations based on parameters
-func (s *Service) generateRecommendations(ctx context.Context, params RecommendationParams) ([]ArtistDocument, *utils.AppError) {
-	filter := bson.M{}
-
-	// Build filter based on parameters
-	if len(params.Genres) > 0 || len(params.Cities) > 0 {
-		andConditions := []bson.M{}
-
-		if len(params.Genres) > 0 {
-			andConditions = append(andConditions, bson.M{"genres": bson.M{"$in": params.Genres}})
-		}
-
-		if len(params.Cities) > 0 {
-			andConditions = append(andConditions, bson.M{"cities": bson.M{"$in": params.Cities}})
-		}
-
-		filter["$or"] = andConditions
-	}
-
-	// Exclude specific artists
-	if len(params.Exclude) > 0 {
-		filter["_id"] = bson.M{"$nin": params.Exclude}
-	}
-
-	// Set up find options
-	opts := options.Find()
-	if params.Limit > 0 {
-		opts.SetLimit(int64(params.Limit))
-	}
-
-	cursor, err := s.artists.Find(ctx, filter, opts)
-	if err != nil {
-		return nil, utils.DatabaseError("find artists for recommendations", err)
-	}
-	defer cursor.Close(ctx)
-
-	var artists []ArtistDocument
-	if err := cursor.All(ctx, &artists); err != nil {
-		return nil, utils.DatabaseError("decode recommended artists", err)
-	}
-
-	return artists, nil
-}
-
-// scoreRecommendations scores and ranks recommendations
-func (s *Service) scoreRecommendations(ctx context.Context, artists []ArtistDocument, prefs *UserPreference, interactions []UserInteraction) []RecommendationResult {
-	results := make([]RecommendationResult, 0, len(artists))
-
-	for _, artist := range artists {
-		score := s.calculateArtistScore(artist, prefs, interactions)
-		results = append(results, RecommendationResult{
-			Artist: artist,
-			Score:  score,
-		})
-	}
-
-	// Sort by score (highest first)
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Score > results[j].Score
-	})
-
-	return results
-}
-
-// calculateArtistScore calculates a score for an artist based on user preferences
-func (s *Service) calculateArtistScore(artist ArtistDocument, prefs *UserPreference, interactions []UserInteraction) float64 {
-	score := 0.0
-
-	// Genre matching
-	genreMatches := 0
-	for _, genre := range artist.Genres {
-		for _, prefGenre := range prefs.PreferredGenres {
-			if genre == prefGenre {
-				genreMatches++
-				break
-			}
-		}
-	}
-	score += float64(genreMatches) * 0.6 // 60% weight for genre matching
-
-	// City matching
-	cityMatches := 0
-	for _, city := range artist.Cities {
-		for _, prefCity := range prefs.PreferredCities {
-			if city == prefCity {
-				cityMatches++
-				break
-			}
-		}
-	}
-	score += float64(cityMatches) * 0.4 // 40% weight for city matching
-
-	// Favorite artists boost
-	for _, favArtist := range prefs.FavoriteArtists {
-		if favArtist == artist.ID {
-			score += 1.0 // Big boost for favorites
-			break
-		}
-	}
-
-	// Interaction history penalty (to avoid showing same artists)
-	for _, interaction := range interactions {
-		if interaction.ArtistID == artist.ID {
-			switch interaction.Type {
-			case InteractionSkip:
-				score -= 0.3 // Reduce score for skipped artists
-			case InteractionView:
-				score -= 0.1 // Small penalty for already viewed
-			}
-		}
-	}
-
-	return math.Max(0, score) // Ensure non-negative score
-}
-
 // Cache invalidation helpers
 func (s *Service) invalidateUserCaches(userID primitive.ObjectID) {
 	cache.Del(fmt.Sprintf("user:recs:%s", userID.Hex()))
@@ -444,71 +610,6 @@ func (s *Service) invalidateUserCaches(userID primitive.ObjectID) {
 func (s *Service) invalidateTrendingCaches() {
 	// This would invalidate trending-related caches
 	// Implementation depends on your caching strategy
-}
-
-// Additional helper methods for getting artists
-func (s *Service) getArtistsByGenre(ctx context.Context, genre string, limit int) ([]ArtistDocument, *utils.AppError) {
-	opts := options.Find().SetLimit(int64(limit))
-	cursor, err := s.artists.Find(ctx, bson.M{"genres": genre}, opts)
-	if err != nil {
-		return nil, utils.DatabaseError("find artists by genre", err)
-	}
-	defer cursor.Close(ctx)
-
-	var artists []ArtistDocument
-	if err := cursor.All(ctx, &artists); err != nil {
-		return nil, utils.DatabaseError("decode artists by genre", err)
-	}
-
-	return artists, nil
-}
-
-func (s *Service) getArtistsByCity(ctx context.Context, city string, limit int) ([]ArtistDocument, *utils.AppError) {
-	opts := options.Find().SetLimit(int64(limit))
-	cursor, err := s.artists.Find(ctx, bson.M{"cities": city}, opts)
-	if err != nil {
-		return nil, utils.DatabaseError("find artists by city", err)
-	}
-	defer cursor.Close(ctx)
-
-	var artists []ArtistDocument
-	if err := cursor.All(ctx, &artists); err != nil {
-		return nil, utils.DatabaseError("decode artists by city", err)
-	}
-
-	return artists, nil
-}
-
-func (s *Service) getRandomArtists(ctx context.Context, limit int) ([]ArtistDocument, *utils.AppError) {
-	// Simple random selection - in production you might want to use MongoDB's $sample
-	opts := options.Find().SetLimit(int64(limit * 2)) // Get more to randomize
-	cursor, err := s.artists.Find(ctx, bson.M{}, opts)
-	if err != nil {
-		return nil, utils.DatabaseError("find random artists", err)
-	}
-	defer cursor.Close(ctx)
-
-	var artists []ArtistDocument
-	if err := cursor.All(ctx, &artists); err != nil {
-		return nil, utils.DatabaseError("decode random artists", err)
-	}
-
-	// Simple shuffle and limit
-	if len(artists) > limit {
-		// Basic shuffle - use crypto/rand for production
-		for i := range artists {
-			j := i % len(artists)
-			artists[i], artists[j] = artists[j], artists[i]
-		}
-		artists = artists[:limit]
-	}
-
-	return artists, nil
-}
-
-func (s *Service) getTrendingArtists(ctx context.Context, limit int) ([]ArtistDocument, *utils.AppError) {
-	// For now, return empty slice - implement trending logic later
-	return []ArtistDocument{}, nil
 }
 
 func (s *Service) addTrendingBoost(ctx context.Context, recommendations []RecommendationResult) []RecommendationResult {
