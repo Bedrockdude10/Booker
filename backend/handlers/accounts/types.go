@@ -8,7 +8,7 @@ import (
 )
 
 type Account struct {
-	ID           primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
+	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"` // Changed: json:"id" instead of json:"_id,omitempty"
 	Email        string             `bson:"email" json:"email" validate:"required,email"`
 	PasswordHash string             `bson:"passwordHash" json:"-"` // Never return in JSON
 	Role         string             `bson:"role" json:"role" validate:"required,validrole"`

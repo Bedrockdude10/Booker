@@ -36,14 +36,14 @@ class ApiService {
 
   // Auth endpoints
   async login(credentials: LoginCredentials): Promise<{ user: User; token: string }> {
-    return this.request('/accounts/login', {
+    return this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
   }
 
   async signup(credentials: SignupCredentials): Promise<{ user: User; token: string }> {
-    return this.request('/accounts', {
+    return this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });

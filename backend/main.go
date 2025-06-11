@@ -84,6 +84,12 @@ func run(stderr io.Writer, args []string) {
 		slog.Info("Using default port", "port", port)
 	}
 
+	// Initialize cache
+	if err := cache.Init(); err != nil {
+		fatal(ctx, "Failed to initialize cache", err)
+	}
+	slog.Info("Cache initialized successfully")
+
 	// Set up MongoDB client
 	slog.Info("Connecting to MongoDB...")
 	client, err := connectToMongoDB(ctx, mongoURI)
@@ -94,6 +100,11 @@ func run(stderr io.Writer, args []string) {
 		slog.Info("Disconnecting from MongoDB...")
 		if err := client.Disconnect(ctx); err != nil {
 			slog.Error("Failed to disconnect from MongoDB", "error", err)
+		}
+		// Close cache
+		if cache.Cache != nil {
+			cache.Cache.Close()
+			slog.Info("Cache closed")
 		}
 	}()
 
@@ -143,11 +154,6 @@ func run(stderr io.Writer, args []string) {
 	server := &http.Server{
 		Addr:    ":" + port,
 		Handler: r,
-	}
-
-	// Initialize cache
-	if err := cache.Init(); err != nil {
-		fatal(ctx, "Failed to initialize cache", err)
 	}
 
 	// Start server in a goroutine so it doesn't block
