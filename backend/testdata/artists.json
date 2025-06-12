@@ -1,72 +1,205 @@
 [
-    {
-      "name": "Taylor Swift",
-      "genres": ["pop", "country", "folk"],
+  {
+    "name": "Taylor Swift",
+    "genres": ["pop", "country", "folk"],
+    "cities": ["Nashville", "New York", "Los Angeles"],
+    "contactInfo": {
+      "social": {
+        "spotify": "https://open.spotify.com/artist/06HL4z0CvFAxyc27GXpf02",
+        "appleMusic": "https://music.apple.com/artist/taylor-swift/159260351",
+        "instagram": "https://instagram.com/taylorswift",
+        "youtube": "https://youtube.com/taylorswift",
+        "facebook": "https://facebook.com/TaylorSwift",
+        "twitter": "https://twitter.com/taylorswift13",
+        "tiktok": "https://tiktok.com/@taylorswift",
+        "website": "https://taylorswift.com",
+        "email": "contact@taylorswift.com"
+      },
       "manager": "Tree Paine",
-      "cities": ["Nashville", "New York", "Los Angeles"],
-      "spotify_id": "06HL4z0CvFAxyc27GXpf02"
-    },
-    {
-      "name": "The Weeknd",
-      "genres": ["r-n-b", "pop", "soul"],
-      "manager": "Wassim Slaiby",
-      "cities": ["Toronto", "Los Angeles"],
-      "spotify_id": "1Xyo4u8uXC1ZmMpatF05PJ"
-    },
-    {
-      "name": "Bad Bunny",
-      "genres": ["reggaeton", "latin", "latino"],
-      "manager": "Noah Assad",
-      "cities": ["San Juan", "Miami"],
-      "spotify_id": "4q3ewBCX7sLwd24euuV69X"
-    },
-    {
-      "name": "Billie Eilish",
-      "genres": ["pop", "alternative", "electronic"],
-      "manager": "Danny Rukasin",
-      "cities": ["Los Angeles"],
-      "spotify_id": "6qqNVTkY8uBg9cP3Jd7DAH"
-    },
-    {
-      "name": "Kendrick Lamar",
-      "genres": ["hip-hop", "funk", "soul"],
-      "manager": "Dave Free",
-      "cities": ["Compton", "Los Angeles"],
-      "spotify_id": "2YZyLoL8N0Wb9xBt1NhZWg"
-    },
-    {
-      "name": "Daft Punk",
-      "genres": ["electronic", "house", "dance"],
-      "manager": "Paul-René Albertini",
-      "cities": ["Paris", "Los Angeles"],
-      "spotify_id": "4tZwfgrHOc3mvqYlEYSvVi"
-    },
-    {
-      "name": "Arctic Monkeys",
-      "genres": ["indie", "rock", "alternative"],
-      "manager": "Ian McAndrew",
-      "cities": ["Sheffield", "London"],
-      "spotify_id": "7Ln80lUS6He07XvHI8qqHH"
-    },
-    {
-      "name": "Deadmau5",
-      "genres": ["house", "techno", "progressive-house"],
-      "manager": "Dean Wilson",
-      "cities": ["Toronto", "Los Angeles"],
-      "spotify_id": "2CIMQHirSU0MQqyYHq0eOx"
-    },
-    {
-      "name": "Tame Impala",
-      "genres": ["psych-rock", "indie", "electronic"],
-      "manager": "Kevin Parker",
-      "cities": ["Perth", "Los Angeles"],
-      "spotify_id": "5INjqkS1o8h1imAzPqGZBb"
-    },
-    {
-      "name": "Miles Davis",
-      "genres": ["jazz", "blues", "soul"],
-      "manager": "Estate Representative",
-      "cities": ["New York", "Chicago"],
-      "spotify_id": "0kbYTNQb4Pb1rPbbaF0pT4"
+      "managerInfo": "tree@13management.com",
+      "bookingInfo": "booking@13management.com",
+      "labelName": "Republic Records",
+      "labelURL": "https://republicrecords.com"
     }
+  },
+  {
+    "name": "The Weeknd",
+    "genres": ["r-n-b", "pop", "soul"],
+    "cities": ["Toronto", "Los Angeles"],
+    "contactInfo": {
+      "social": {
+        "spotify": "https://open.spotify.com/artist/1Xyo4u8uXC1ZmMpatF05PJ",
+        "appleMusic": "https://music.apple.com/artist/the-weeknd/479756766",
+        "instagram": "https://instagram.com/theweeknd",
+        "youtube": "https://youtube.com/theweeknd",
+        "twitter": "https://twitter.com/theweeknd",
+        "website": "https://theweeknd.com"
+      },
+      "manager": "Wassim Slaiby",
+      "managerInfo": "wassim@salxco.com",
+      "bookingInfo": "booking@salxco.com",
+      "labelName": "XO/Republic Records",
+      "labelURL": "https://republicrecords.com"
+    }
+  },
+  {
+    "name": "Bad Bunny",
+    "genres": ["reggaeton", "latin", "latino"],
+    "cities": ["San Juan", "Miami"],
+    "contactInfo": {
+      "social": {
+        "spotify": "https://open.spotify.com/artist/4q3ewBCX7sLwd24euuV69X",
+        "appleMusic": "https://music.apple.com/artist/bad-bunny/1126808565",
+        "instagram": "https://instagram.com/badbunnypr",
+        "youtube": "https://youtube.com/badbunnypr",
+        "twitter": "https://twitter.com/sanbenito",
+        "tiktok": "https://tiktok.com/@badbunny",
+        "website": "https://badbunnyofficial.com"
+      },
+      "manager": "Noah Assad",
+      "managerInfo": "noah@rocastargroup.com",
+      "labelName": "Rimas Entertainment",
+      "labelURL": "https://rimasentertainment.com"
+    }
+  },
+  {
+    "name": "Billie Eilish",
+    "genres": ["pop", "alternative", "electronic"],
+    "cities": ["Los Angeles"],
+    "contactInfo": {
+      "social": {
+        "spotify": "https://open.spotify.com/artist/6qqNVTkY8uBg9cP3Jd7DAH",
+        "appleMusic": "https://music.apple.com/artist/billie-eilish/1469336766",
+        "instagram": "https://instagram.com/billieeilish",
+        "youtube": "https://youtube.com/billieeilish",
+        "twitter": "https://twitter.com/billieeilish",
+        "tiktok": "https://tiktok.com/@billieeilish",
+        "website": "https://billieeilish.com"
+      },
+      "manager": "Danny Rukasin",
+      "managerInfo": "danny@brentsmanagement.com",
+      "labelName": "Interscope Records",
+      "labelURL": "https://interscope.com"
+    }
+  },
+  {
+    "name": "Kendrick Lamar",
+    "genres": ["hip-hop", "funk", "soul"],
+    "cities": ["Compton", "Los Angeles"],
+    "contactInfo": {
+      "social": {
+        "spotify": "https://open.spotify.com/artist/2YZyLoL8N0Wb9xBt1NhZWg",
+        "appleMusic": "https://music.apple.com/artist/kendrick-lamar/368183298",
+        "instagram": "https://instagram.com/kendricklamar",
+        "youtube": "https://youtube.com/kendricklamar",
+        "twitter": "https://twitter.com/kendricklamar",
+        "website": "https://kendricklamar.com"
+      },
+      "manager": "Dave Free",
+      "managerInfo": "dave@pglanghq.com",
+      "labelName": "Top Dawg Entertainment",
+      "labelURL": "https://topdawgent.com"
+    }
+  },
+  {
+    "name": "Daft Punk",
+    "genres": ["electronic", "house", "dance"],
+    "cities": ["Paris", "Los Angeles"],
+    "contactInfo": {
+      "social": {
+        "spotify": "https://open.spotify.com/artist/4tZwfgrHOc3mvqYlEYSvVi",
+        "appleMusic": "https://music.apple.com/artist/daft-punk/5468295",
+        "youtube": "https://youtube.com/daftpunk",
+        "facebook": "https://facebook.com/DaftPunk",
+        "website": "https://daftpunk.com",
+        "soundcloud": "https://soundcloud.com/daftpunk"
+      },
+      "manager": "Paul-René Albertini",
+      "managerInfo": "contact@daftpunk.com",
+      "labelName": "Columbia Records",
+      "labelURL": "https://columbiarecords.com"
+    }
+  },
+  {
+    "name": "Arctic Monkeys",
+    "genres": ["indie", "rock", "alternative"],
+    "cities": ["Sheffield", "London"],
+    "contactInfo": {
+      "social": {
+        "spotify": "https://open.spotify.com/artist/7Ln80lUS6He07XvHI8qqHH",
+        "appleMusic": "https://music.apple.com/artist/arctic-monkeys/2717122",
+        "instagram": "https://instagram.com/arcticmonkeys",
+        "youtube": "https://youtube.com/arcticmonkeys",
+        "facebook": "https://facebook.com/ArcticMonkeys",
+        "twitter": "https://twitter.com/ArcticMonkeys",
+        "website": "https://arcticmonkeys.com"
+      },
+      "manager": "Ian McAndrew",
+      "managerInfo": "ian@wildlifeentertainment.com",
+      "labelName": "Domino Recording Company",
+      "labelURL": "https://dominorecordco.com"
+    }
+  },
+  {
+    "name": "Deadmau5",
+    "genres": ["house", "techno", "progressive-house"],
+    "cities": ["Toronto", "Los Angeles"],
+    "contactInfo": {
+      "social": {
+        "spotify": "https://open.spotify.com/artist/2CIMQHirSU0MQqyYHq0eOx",
+        "appleMusic": "https://music.apple.com/artist/deadmau5/4485278",
+        "instagram": "https://instagram.com/deadmau5",
+        "youtube": "https://youtube.com/deadmau5",
+        "twitter": "https://twitter.com/deadmau5",
+        "tiktok": "https://tiktok.com/@deadmau5official",
+        "website": "https://deadmau5.com",
+        "soundcloud": "https://soundcloud.com/deadmau5",
+        "beatport": "https://beatport.com/artist/deadmau5/13"
+      },
+      "manager": "Dean Wilson",
+      "managerInfo": "dean@mau5trap.com",
+      "labelName": "mau5trap",
+      "labelURL": "https://mau5trap.com"
+    }
+  },
+  {
+    "name": "Tame Impala",
+    "genres": ["psych-rock", "indie", "electronic"],
+    "cities": ["Perth", "Los Angeles"],
+    "contactInfo": {
+      "social": {
+        "spotify": "https://open.spotify.com/artist/5INjqkS1o8h1imAzPqGZBb",
+        "appleMusic": "https://music.apple.com/artist/tame-impala/4488852",
+        "instagram": "https://instagram.com/tameimpala",
+        "youtube": "https://youtube.com/tameimpala",
+        "facebook": "https://facebook.com/tameimpala",
+        "twitter": "https://twitter.com/tameimpala",
+        "website": "https://tameimpala.com",
+        "bandcamp": "https://tameimpala.bandcamp.com"
+      },
+      "manager": "Kevin Parker",
+      "managerInfo": "management@tameimpala.com",
+      "labelName": "Modular Recordings",
+      "labelURL": "https://modularpeople.com"
+    }
+  },
+  {
+    "name": "Miles Davis",
+    "genres": ["jazz", "blues", "soul"],
+    "cities": ["New York", "Chicago"],
+    "contactInfo": {
+      "social": {
+        "spotify": "https://open.spotify.com/artist/0kbYTNQb4Pb1rPbbaF0pT4",
+        "appleMusic": "https://music.apple.com/artist/miles-davis/1635308",
+        "youtube": "https://youtube.com/milesdavis",
+        "facebook": "https://facebook.com/MilesDavis",
+        "website": "https://milesdavis.com",
+        "discogs": "https://discogs.com/artist/5591-Miles-Davis"
+      },
+      "manager": "Estate Representative",
+      "managerInfo": "estate@milesdavis.com",
+      "labelName": "Columbia Records",
+      "labelURL": "https://columbiarecords.com"
+    }
+  }
 ]

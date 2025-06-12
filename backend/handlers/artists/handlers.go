@@ -1,4 +1,4 @@
-// handlers/artists/handlers.go
+// handlers/artists/handlers.go - Updated to use shared domain types
 package artists
 
 import (
@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/Bedrockdude10/Booker/backend/domain/artists"
 	"github.com/Bedrockdude10/Booker/backend/utils"
 	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -16,9 +17,13 @@ type Handler struct {
 	service *Service
 }
 
-// CreateArtist - unchanged
+//==============================================================================
+// CRUD Operations for Admin Interface
+//==============================================================================
+
+// CreateArtist creates a new artist (admin endpoint)
 func (h *Handler) CreateArtist(w http.ResponseWriter, r *http.Request) {
-	var params CreateArtistParams
+	var params artists.CreateArtistParams
 
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 		utils.HandleError(w, utils.ValidationError("Invalid request body"))
@@ -36,96 +41,7 @@ func (h *Handler) CreateArtist(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(artist)
 }
 
-// GetArtists - now supports filtering via query parameters
-func (h *Handler) GetArtists(w http.ResponseWriter, r *http.Request) {
-	// Parse filters from query parameters
-	filters := ParseFilterParams(r)
-
-	// Validate filters
-	if appErr := ValidateFilterParams(filters); appErr != nil {
-		utils.HandleError(w, appErr)
-		return
-	}
-
-	// Parse pagination
-	page, limit := parsePagination(r)
-	offset := (page - 1) * limit
-
-	artists, appErr := h.service.GetArtists(r.Context(), filters, limit, offset)
-	if appErr != nil {
-		utils.HandleError(w, appErr)
-		return
-	}
-
-	response := map[string]interface{}{
-		"data": artists,
-		"meta": map[string]interface{}{
-			"page":    page,
-			"limit":   limit,
-			"count":   len(artists),
-			"hasMore": len(artists) == limit,
-			"filters": filters,
-		},
-	}
-
-	writeJSON(w, response)
-}
-
-// GetArtistsByGenre - now supports additional filtering
-func (h *Handler) GetArtistsByGenre(w http.ResponseWriter, r *http.Request) {
-	genre := chi.URLParam(r, "genre")
-
-	// Parse additional filters from query parameters
-	additionalFilters := ParseFilterParams(r)
-
-	// Validate filters
-	if appErr := ValidateFilterParams(additionalFilters); appErr != nil {
-		utils.HandleError(w, appErr)
-		return
-	}
-
-	artists, appErr := h.service.GetArtistsByGenre(r.Context(), genre, additionalFilters)
-	if appErr != nil {
-		utils.HandleError(w, appErr)
-		return
-	}
-
-	writeJSON(w, map[string]interface{}{
-		"data":    artists,
-		"genre":   genre,
-		"filters": additionalFilters,
-		"count":   len(artists),
-	})
-}
-
-// GetArtistsByCity - now supports additional filtering
-func (h *Handler) GetArtistsByCity(w http.ResponseWriter, r *http.Request) {
-	city := chi.URLParam(r, "city")
-
-	// Parse additional filters from query parameters
-	additionalFilters := ParseFilterParams(r)
-
-	// Validate filters
-	if appErr := ValidateFilterParams(additionalFilters); appErr != nil {
-		utils.HandleError(w, appErr)
-		return
-	}
-
-	artists, appErr := h.service.GetArtistsByCity(r.Context(), city, additionalFilters)
-	if appErr != nil {
-		utils.HandleError(w, appErr)
-		return
-	}
-
-	writeJSON(w, map[string]interface{}{
-		"data":    artists,
-		"city":    city,
-		"filters": additionalFilters,
-		"count":   len(artists),
-	})
-}
-
-// GetArtist - unchanged (single artist lookup)
+// GetArtist retrieves a single artist by ID (admin endpoint)
 func (h *Handler) GetArtist(w http.ResponseWriter, r *http.Request) {
 	id, appErr := parseObjectID(chi.URLParam(r, "id"))
 	if appErr != nil {
@@ -142,7 +58,7 @@ func (h *Handler) GetArtist(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, artist)
 }
 
-// UpdateArtist - unchanged
+// UpdateArtist performs a full update of an artist (admin endpoint)
 func (h *Handler) UpdateArtist(w http.ResponseWriter, r *http.Request) {
 	id, appErr := parseObjectID(chi.URLParam(r, "id"))
 	if appErr != nil {
@@ -150,7 +66,7 @@ func (h *Handler) UpdateArtist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var params CreateArtistParams
+	var params artists.CreateArtistParams
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 		utils.HandleError(w, utils.ValidationError("Invalid request body"))
 		return
@@ -165,7 +81,7 @@ func (h *Handler) UpdateArtist(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, updatedArtist)
 }
 
-// UpdatePartialArtist - unchanged
+// UpdatePartialArtist performs a partial update of an artist (admin endpoint)
 func (h *Handler) UpdatePartialArtist(w http.ResponseWriter, r *http.Request) {
 	id, appErr := parseObjectID(chi.URLParam(r, "id"))
 	if appErr != nil {
@@ -173,7 +89,7 @@ func (h *Handler) UpdatePartialArtist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var params CreateArtistParams
+	var params artists.CreateArtistParams
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 		utils.HandleError(w, utils.ValidationError("Invalid request body"))
 		return
@@ -188,7 +104,7 @@ func (h *Handler) UpdatePartialArtist(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, updatedArtist)
 }
 
-// DeleteArtist - unchanged
+// DeleteArtist deletes an artist (admin endpoint)
 func (h *Handler) DeleteArtist(w http.ResponseWriter, r *http.Request) {
 	id, appErr := parseObjectID(chi.URLParam(r, "id"))
 	if appErr != nil {
@@ -204,9 +120,50 @@ func (h *Handler) DeleteArtist(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-///////////////////////////////// HELPER FUNCTIONS
+//==============================================================================
+// Admin Browse/Filter Endpoints (Limited Use)
+//==============================================================================
 
-// parsePagination extracts page and limit from query parameters using env vars
+// GetArtists provides admin interface for browsing artists with filtering
+func (h *Handler) GetArtists(w http.ResponseWriter, r *http.Request) {
+	// Parse filters using shared domain logic
+	filters := artists.ParseFilterParams(r)
+
+	// Validate using shared domain validation
+	if appErr := artists.ValidateFilterParams(filters); appErr != nil {
+		utils.HandleError(w, appErr)
+		return
+	}
+
+	// Parse pagination
+	page, limit := parsePagination(r)
+	offset := (page - 1) * limit
+
+	artistsList, appErr := h.service.GetArtists(r.Context(), filters, limit, offset)
+	if appErr != nil {
+		utils.HandleError(w, appErr)
+		return
+	}
+
+	response := map[string]interface{}{
+		"data": artistsList,
+		"meta": map[string]interface{}{
+			"page":    page,
+			"limit":   limit,
+			"count":   len(artistsList),
+			"hasMore": len(artistsList) == limit,
+			"filters": filters,
+		},
+	}
+
+	writeJSON(w, response)
+}
+
+//==============================================================================
+// Helper Functions
+//==============================================================================
+
+// parsePagination extracts page and limit from query parameters
 func parsePagination(r *http.Request) (page, limit int) {
 	page = 1
 	limit = getDefaultPageSize()

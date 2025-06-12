@@ -15,6 +15,7 @@ import (
 	"github.com/Bedrockdude10/Booker/backend/cache"
 	"github.com/Bedrockdude10/Booker/backend/handlers/accounts"
 	"github.com/Bedrockdude10/Booker/backend/handlers/artists"
+	"github.com/Bedrockdude10/Booker/backend/handlers/discovery"
 	"github.com/Bedrockdude10/Booker/backend/handlers/preferences"
 	"github.com/Bedrockdude10/Booker/backend/handlers/recommendations"
 	"github.com/Bedrockdude10/Booker/backend/utils"
@@ -115,6 +116,7 @@ func run(stderr io.Writer, args []string) {
 		"userPreferences":  db.Collection("userPreferences"),
 		"userInteractions": db.Collection("userInteractions"),
 		"accounts":         db.Collection("accounts"),
+		"scrapedArtists":   db.Collection("scrapedArtists"), // artists scraped from Bandcamp
 		// "trendingCache":    db.Collection("trendingCache"),
 	}
 
@@ -143,6 +145,7 @@ func run(stderr io.Writer, args []string) {
 	artists.Routes(r, collections)
 	preferences.Routes(r, collections)
 	recommendations.Routes(r, collections)
+	discovery.Routes(r, collections)
 
 	// Add a simple health check route
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {

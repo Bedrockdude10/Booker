@@ -1,3 +1,4 @@
+// handlers/artists/routes.go - Simplified for admin use only
 package artists
 
 import (
@@ -9,42 +10,37 @@ import (
 )
 
 /*
-Router maps endpoints to handlers for artist-related operations
+Routes maps endpoints to handlers for artist admin operations.
+Note: User-facing discovery endpoints are handled by recommendations service.
 */
 func Routes(r chi.Router, collections map[string]*mongo.Collection) {
 	service := NewService(collections)
 	handler := &Handler{service: service}
 
-	// Mount artist routes under /api/artists (no versioning)
+	// Mount artist routes under /api/artists (admin interface)
 	r.Route("/api/artists", func(r chi.Router) {
-		// Basic CRUD operations
-		r.Post("/", handler.CreateArtist)
-		r.Get("/", handler.GetArtists)
-		r.Get("/{id}", handler.GetArtist)
-		r.Put("/{id}", handler.UpdateArtist)
-		r.Patch("/{id}", handler.UpdatePartialArtist)
-		r.Delete("/{id}", handler.DeleteArtist)
+		//==============================================================================
+		// CRUD Operations (Admin Interface)
+		//==============================================================================
+		r.Post("/", handler.CreateArtist)             // Create new artist
+		r.Get("/{id}", handler.GetArtist)             // Get single artist by ID
+		r.Put("/{id}", handler.UpdateArtist)          // Full update
+		r.Patch("/{id}", handler.UpdatePartialArtist) // Partial update
+		r.Delete("/{id}", handler.DeleteArtist)       // Delete artist
 
-		// Specialized routes
-		r.Get("/genre/{genre}", handler.GetArtistsByGenre)
-		r.Get("/city/{city}", handler.GetArtistsByCity)
+		//==============================================================================
+		// Admin Browse/Filter (Limited Use)
+		//==============================================================================
+		r.Get("/", handler.GetArtists) // Admin browse with filtering
 
-		// Recommendation routes
-		// r.Get("/recommendations", handler.GetRecommendations)
-		// r.Get("/recommendations/genre/{genre}", handler.GetRecommendationsByGenre)
-		// r.Get("/recommendations/city/{city}", handler.GetRecommendationsByLocation)
-
-		// Genre listing endpoint (helpful for frontend)
-		r.Get("/genres", handler.GetAllGenres)
-
-		// // User preference routes (when ready)
-		// r.Post("/preferences", handler.SaveUserPreferences)
-		// r.Get("/preferences/{userId}", handler.GetUserPreferences)
-		// r.Get("/recommendations/user/{userId}", handler.GetPersonalizedRecommendations)
+		//==============================================================================
+		// Utility Endpoints
+		//==============================================================================
+		r.Get("/genres", handler.GetAllGenres) // List all available genres
 	})
 }
 
-// Retrieves all genres
+// GetAllGenres retrieves all available genres for admin interface
 func (h *Handler) GetAllGenres(w http.ResponseWriter, r *http.Request) {
 	genres := domain.GetAllGenres()
 

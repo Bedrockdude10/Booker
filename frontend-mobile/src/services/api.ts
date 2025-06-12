@@ -1,3 +1,4 @@
+// src/services/api.ts
 import { API_BASE_URL } from '../utils/constants';
 import { getAuthToken } from './storage';
 import { 
@@ -50,7 +51,7 @@ class ApiService {
   }
 
   async requestPasswordReset(email: string): Promise<{ message: string }> {
-    return this.request('/accounts/password/reset', {
+    return this.request('/auth/password/reset', {
       method: 'POST',
       body: JSON.stringify({ email }),
     });
@@ -58,11 +59,11 @@ class ApiService {
 
   // User endpoints
   async getProfile(userId: string): Promise<User> {
-    return this.request(`/accounts/${userId}`);
+    return this.request(`/accounts`);
   }
 
   async updateProfile(userId: string, data: Partial<User>): Promise<User> {
-    return this.request(`/accounts/${userId}`, {
+    return this.request(`/accounts`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -76,33 +77,14 @@ class ApiService {
     });
 
     if (params.filters?.genre?.length) {
-      queryParams.append('genres', params.filters.genre.join(','));
+      queryParams.append('genre', params.filters.genre.join(','));
     }
     if (params.filters?.location) {
-      queryParams.append('locations', params.filters.location);
+      queryParams.append('location', params.filters.location);
     }
 
-    const response: any = await this.request(`/recommendations/user/${params.userId}?${queryParams}`);
-    
-    // Extract and transform the artist data
-    return response.data?.map((item: any) => ({
-      id: item.artist._id,
-      name: item.artist.name,
-      genre: item.artist.genres,
-      location: item.artist.cities[0] || '',
-      bio: item.artist.manager ? `Managed by ${item.artist.manager}` : 'No bio available',
-      imageUrl: undefined,
-      rating: undefined,
-      bookingRate: undefined,
-      contactInfo: {
-        email: '',
-        phone: '',
-        website: '',
-        social: {}
-      },
-      createdAt: new Date().toISOString(),
-    })) || [];
-}
+    return this.request(`/recommendations/user/${params.userId}?${queryParams}`);
+  }
 
   async getArtistsByGenre(genre: string): Promise<Artist[]> {
     return this.request(`/recommendations/genre/${encodeURIComponent(genre)}`);
@@ -113,6 +95,9 @@ class ApiService {
   }
 
   async getArtistDetail(artistId: string): Promise<Artist> {
+    // Get the artist detail from the backend
+    // This should return the complete artist object including contactInfo.social
+    // which contains spotify, instagram, youtube, and potentially bandcamp, appleMusic
     return this.request(`/artists/${artistId}`);
   }
 
@@ -126,6 +111,33 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  // Track streaming service clicks - optional analytics
+  async trackStreamingServiceClick(data: {
+    userId?: string;
+    artistId: string;
+    service: 'bandcamp' | 'spotify' | 'appleMusic' | 'instagram';
+    url?: string;
+  }): Promise<void> {
+    // Only track if we have the interactions endpoint available
+    try {
+      return this.request('/recommendations/interactions', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: data.userId,
+          artistId: data.artistId,
+          type: 'streaming_service_click',
+          metadata: {
+            service: data.service,
+            url: data.url,
+          },
+        }),
+      });
+    } catch (error) {
+      // If tracking fails, don't break the user experience
+      console.warn('Failed to track streaming service click:', error);
+    }
   }
 }
 

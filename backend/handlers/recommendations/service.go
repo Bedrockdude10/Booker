@@ -1,4 +1,4 @@
-// handlers/recommendations/service.go - Unified service with filtering built-in
+// handlers/recommendations/service.go - Updated to use service composition
 package recommendations
 
 import (
@@ -9,7 +9,8 @@ import (
 	"time"
 
 	"github.com/Bedrockdude10/Booker/backend/cache"
-	"github.com/Bedrockdude10/Booker/backend/domain"
+	"github.com/Bedrockdude10/Booker/backend/domain/artists"
+	artistsService "github.com/Bedrockdude10/Booker/backend/handlers/artists"
 	"github.com/Bedrockdude10/Booker/backend/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -17,18 +18,21 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// NewService creates a new recommendations service
+// NewService creates a new recommendations service with composed artists service
 func NewService(collections map[string]*mongo.Collection) *Service {
+	// Create artists service for composition
+	artistsSvc := artistsService.NewService(collections)
+
 	return &Service{
-		artists:       collections["artists"],
-		preferences:   collections["userPreferences"],
-		interactions:  collections["userInteractions"],
-		trendingCache: collections["trendingCache"],
+		artistsService:   artistsSvc,
+		preferencesCol:   collections["userPreferences"],
+		interactionsCol:  collections["userInteractions"],
+		trendingCacheCol: collections["trendingCache"],
 	}
 }
 
 //==============================================================================
-// Unified Recommendation Methods - All Support Filtering
+// Main Recommendation Methods - Using Service Composition
 //==============================================================================
 
 // GetPersonalizedRecommendations generates personalized recommendations with filtering
@@ -54,23 +58,18 @@ func (s *Service) GetPersonalizedRecommendations(ctx context.Context, params Enh
 		excludeArtists = append(excludeArtists, interaction.ArtistID)
 	}
 
-	// Build filter query with exclusions
-	filterQuery := s.buildFilterQuery(mergedFilters)
-	if len(excludeArtists) > 0 {
-		if filterQuery == nil {
-			filterQuery = bson.M{}
-		}
-		filterQuery["_id"] = bson.M{"$nin": excludeArtists}
-	}
-
-	// Execute query
-	artists, appErr := s.findArtistsWithFilter(ctx, filterQuery, params.Limit*2, params.Offset)
+	// Use artists service to get filtered results
+	// Get more than needed to account for exclusions
+	rawArtists, appErr := s.artistsService.GetArtists(ctx, mergedFilters, params.Limit*2, params.Offset)
 	if appErr != nil {
 		return nil, appErr
 	}
 
-	// Score based on user preferences and filters
-	personalizedResults := s.scorePersonalizedRecommendations(ctx, artists, prefs, interactions, params.Filters)
+	// Filter out excluded artists
+	filteredArtists := s.excludeInteractedArtists(rawArtists, excludeArtists)
+
+	// Score based on user preferences and interactions
+	personalizedResults := s.scorePersonalizedRecommendations(ctx, filteredArtists, prefs, interactions, params.Filters)
 
 	// Limit results
 	if len(personalizedResults) > params.Limit {
@@ -105,11 +104,9 @@ func (s *Service) GetRecommendationsByGenre(ctx context.Context, params Enhanced
 		return nil, utils.ValidationError("Genre filter is required")
 	}
 
-	// Validate genres
-	for _, genre := range params.Filters.Genres {
-		if !domain.HasGenre(genre) {
-			return nil, utils.ValidationError("Invalid genre: " + genre)
-		}
+	// Validate filters using shared validation
+	if appErr := artists.ValidateFilterParams(params.Filters); appErr != nil {
+		return nil, appErr
 	}
 
 	// Check cache first
@@ -120,22 +117,14 @@ func (s *Service) GetRecommendationsByGenre(ctx context.Context, params Enhanced
 		}
 	}
 
-	// Build filter query and execute
-	filterQuery := s.buildFilterQuery(params.Filters)
-	artists, appErr := s.findArtistsWithFilter(ctx, filterQuery, params.Limit*2, params.Offset)
+	// Use artists service to get filtered artists
+	rawArtists, appErr := s.artistsService.GetArtists(ctx, params.Filters, params.Limit*2, params.Offset)
 	if appErr != nil {
 		return nil, appErr
 	}
 
 	// Convert to recommendation results and score
-	recommendations := make([]RecommendationResult, 0, len(artists))
-	for _, artist := range artists {
-		score := s.calculateFilteredScore(artist, params.Filters)
-		recommendations = append(recommendations, RecommendationResult{
-			Artist: artist,
-			Score:  score,
-		})
-	}
+	recommendations := s.scoreArtistsForRecommendations(rawArtists, params.Filters)
 
 	// Add trending boost and sort
 	recommendations = s.addTrendingBoost(ctx, recommendations)
@@ -183,22 +172,14 @@ func (s *Service) GetRecommendationsByCity(ctx context.Context, params EnhancedR
 		}
 	}
 
-	// Build filter query and execute
-	filterQuery := s.buildFilterQuery(params.Filters)
-	artists, appErr := s.findArtistsWithFilter(ctx, filterQuery, params.Limit*2, params.Offset)
+	// Use artists service to get filtered artists
+	rawArtists, appErr := s.artistsService.GetArtists(ctx, params.Filters, params.Limit*2, params.Offset)
 	if appErr != nil {
 		return nil, appErr
 	}
 
 	// Convert to recommendation results and score
-	recommendations := make([]RecommendationResult, 0, len(artists))
-	for _, artist := range artists {
-		score := s.calculateFilteredScore(artist, params.Filters)
-		recommendations = append(recommendations, RecommendationResult{
-			Artist: artist,
-			Score:  score,
-		})
-	}
+	recommendations := s.scoreArtistsForRecommendations(rawArtists, params.Filters)
 
 	// Add trending boost and sort
 	recommendations = s.addTrendingBoost(ctx, recommendations)
@@ -241,22 +222,14 @@ func (s *Service) GetGeneralRecommendations(ctx context.Context, params Enhanced
 		}
 	}
 
-	// Build filter query and execute
-	filterQuery := s.buildFilterQuery(params.Filters)
-	artists, appErr := s.findArtistsWithFilter(ctx, filterQuery, params.Limit*2, params.Offset)
+	// Use artists service to get filtered artists
+	rawArtists, appErr := s.artistsService.GetArtists(ctx, params.Filters, params.Limit*2, params.Offset)
 	if appErr != nil {
 		return nil, appErr
 	}
 
-	// Convert to recommendation results
-	recommendations := make([]RecommendationResult, 0, len(artists))
-	for _, artist := range artists {
-		score := s.calculateFilteredScore(artist, params.Filters)
-		recommendations = append(recommendations, RecommendationResult{
-			Artist: artist,
-			Score:  score,
-		})
-	}
+	// Convert to recommendation results and score
+	recommendations := s.scoreArtistsForRecommendations(rawArtists, params.Filters)
 
 	// Add trending boost and sort
 	recommendations = s.addTrendingBoost(ctx, recommendations)
@@ -286,7 +259,7 @@ func (s *Service) GetGeneralRecommendations(ctx context.Context, params Enhanced
 }
 
 //==============================================================================
-// User Interaction Methods (unchanged)
+// User Interaction Methods
 //==============================================================================
 
 // TrackInteraction logs a user interaction with an artist
@@ -300,7 +273,7 @@ func (s *Service) TrackInteraction(ctx context.Context, params TrackInteractionP
 		Metadata:  params.Metadata,
 	}
 
-	if _, err := s.interactions.InsertOne(ctx, interaction); err != nil {
+	if _, err := s.interactionsCol.InsertOne(ctx, interaction); err != nil {
 		return utils.DatabaseErrorLog(ctx, "track interaction", err)
 	}
 
@@ -317,109 +290,47 @@ func (s *Service) GetUserInteractions(ctx context.Context, userID primitive.Obje
 }
 
 //==============================================================================
-// Helper Methods for Filtering
+// Recommendation Scoring Methods (Recommendation-Specific Logic)
 //==============================================================================
 
-// buildFilterQuery constructs MongoDB filter based on RecommendationFilters
-func (s *Service) buildFilterQuery(filters RecommendationFilters) bson.M {
-	query := bson.M{}
-	andConditions := []bson.M{}
+// scoreArtistsForRecommendations converts artists to recommendation results with scoring
+func (s *Service) scoreArtistsForRecommendations(rawArtists []artists.ArtistDocument, filters artists.FilterParams) []RecommendationResult {
+	recommendations := make([]RecommendationResult, 0, len(rawArtists))
 
-	// Genre filtering (OR logic within genres)
-	if len(filters.Genres) > 0 {
-		andConditions = append(andConditions, bson.M{
-			"genres": bson.M{"$in": filters.Genres},
+	for _, artist := range rawArtists {
+		score := s.calculateFilteredScore(artist, filters)
+		recommendations = append(recommendations, RecommendationResult{
+			Artist: artist,
+			Score:  score,
 		})
 	}
 
-	// City filtering (OR logic within cities)
-	if len(filters.Cities) > 0 {
-		andConditions = append(andConditions, bson.M{
-			"cities": bson.M{"$in": filters.Cities},
-		})
-	}
-
-	// Rating filtering
-	if filters.MinRating > 0 || filters.MaxRating > 0 {
-		ratingQuery := bson.M{}
-		if filters.MinRating > 0 {
-			ratingQuery["$gte"] = filters.MinRating
-		}
-		if filters.MaxRating > 0 {
-			ratingQuery["$lte"] = filters.MaxRating
-		}
-		andConditions = append(andConditions, bson.M{
-			"rating": ratingQuery,
-		})
-	}
-
-	// Manager filtering
-	if filters.HasManager != nil {
-		if *filters.HasManager {
-			andConditions = append(andConditions, bson.M{
-				"manager": bson.M{"$exists": true, "$ne": ""},
-			})
-		} else {
-			andConditions = append(andConditions, bson.M{
-				"$or": []bson.M{
-					{"manager": bson.M{"$exists": false}},
-					{"manager": ""},
-				},
-			})
-		}
-	}
-
-	// Spotify filtering
-	if filters.HasSpotify != nil {
-		if *filters.HasSpotify {
-			andConditions = append(andConditions, bson.M{
-				"spotifyId": bson.M{"$exists": true, "$ne": ""},
-			})
-		} else {
-			andConditions = append(andConditions, bson.M{
-				"$or": []bson.M{
-					{"spotifyId": bson.M{"$exists": false}},
-					{"spotifyId": ""},
-				},
-			})
-		}
-	}
-
-	// Combine all conditions
-	if len(andConditions) > 0 {
-		query["$and"] = andConditions
-	}
-
-	return query
+	return recommendations
 }
 
-// findArtistsWithFilter executes the database query with filters
-func (s *Service) findArtistsWithFilter(ctx context.Context, filter bson.M, limit, offset int) ([]ArtistDocument, *utils.AppError) {
-	opts := options.Find()
-	if limit > 0 {
-		opts.SetLimit(int64(limit))
-	}
-	if offset > 0 {
-		opts.SetSkip(int64(offset))
-	}
-	opts.SetSort(bson.M{"name": 1}) // Default sort
-
-	cursor, err := s.artists.Find(ctx, filter, opts)
-	if err != nil {
-		return nil, utils.DatabaseError("find artists with filter", err)
-	}
-	defer cursor.Close(ctx)
-
-	var artists []ArtistDocument
-	if err := cursor.All(ctx, &artists); err != nil {
-		return nil, utils.DatabaseError("decode artists with filter", err)
+// excludeInteractedArtists removes artists the user has already interacted with
+func (s *Service) excludeInteractedArtists(artists []artists.ArtistDocument, exclude []primitive.ObjectID) []artists.ArtistDocument {
+	if len(exclude) == 0 {
+		return artists
 	}
 
-	return artists, nil
+	excludeSet := make(map[primitive.ObjectID]bool)
+	for _, id := range exclude {
+		excludeSet[id] = true
+	}
+
+	filtered := make([]artistsService.ArtistDocument, 0, len(artists))
+	for _, artist := range artists {
+		if !excludeSet[artist.ID] {
+			filtered = append(filtered, artist)
+		}
+	}
+
+	return filtered
 }
 
 // mergeUserPreferencesWithFilters combines user preferences with explicit filters
-func (s *Service) mergeUserPreferencesWithFilters(prefs *UserPreference, filters RecommendationFilters) RecommendationFilters {
+func (s *Service) mergeUserPreferencesWithFilters(prefs *UserPreferenceAlias, filters artists.FilterParams) artists.FilterParams {
 	merged := filters // Start with explicit filters
 
 	// Add user preferred genres if no explicit genres provided
@@ -432,14 +343,11 @@ func (s *Service) mergeUserPreferencesWithFilters(prefs *UserPreference, filters
 		merged.Cities = prefs.PreferredCities
 	}
 
-	// Note: MinRating is not stored in user preferences currently
-	// If you want to add this feature, add MinRating field to UserPreference type
-
 	return merged
 }
 
 // calculateFilteredScore calculates score based on how well an artist matches filters
-func (s *Service) calculateFilteredScore(artist ArtistDocument, filters RecommendationFilters) float64 {
+func (s *Service) calculateFilteredScore(artist artists.ArtistDocument, filters artists.FilterParams) float64 {
 	score := 1.0 // Base score
 
 	// Genre match boost
@@ -470,18 +378,13 @@ func (s *Service) calculateFilteredScore(artist ArtistDocument, filters Recommen
 		score += float64(cityMatches) * 0.2
 	}
 
-	// Rating boost (if artist has high rating)
-	if artist.Rating > 4.0 {
-		score += (artist.Rating - 4.0) * 0.2
-	}
-
-	// Manager boost
-	if filters.HasManager != nil && *filters.HasManager && artist.Manager != "" {
+	// Manager boost - using new ContactInfo structure
+	if filters.HasManager != nil && *filters.HasManager && artist.ContactInfo.Manager != "" {
 		score += 0.1
 	}
 
-	// Spotify boost
-	if filters.HasSpotify != nil && *filters.HasSpotify && artist.SpotifyID != "" {
+	// Spotify boost - using new ContactInfo structure
+	if filters.HasSpotify != nil && *filters.HasSpotify && artist.ContactInfo.Social.Spotify != "" {
 		score += 0.1
 	}
 
@@ -489,7 +392,7 @@ func (s *Service) calculateFilteredScore(artist ArtistDocument, filters Recommen
 }
 
 // scorePersonalizedRecommendations scores recommendations based on user preferences + filters
-func (s *Service) scorePersonalizedRecommendations(ctx context.Context, artists []ArtistDocument, prefs *UserPreference, interactions []UserInteraction, filters RecommendationFilters) []RecommendationResult {
+func (s *Service) scorePersonalizedRecommendations(ctx context.Context, artists []artists.ArtistDocument, prefs *UserPreferenceAlias, interactions []UserInteraction, filters artists.FilterParams) []RecommendationResult {
 	results := make([]RecommendationResult, 0, len(artists))
 
 	for _, artist := range artists {
@@ -514,7 +417,7 @@ func (s *Service) scorePersonalizedRecommendations(ctx context.Context, artists 
 }
 
 // calculatePersonalizationScore calculates additional score based on user preferences
-func (s *Service) calculatePersonalizationScore(artist ArtistDocument, prefs *UserPreference, interactions []UserInteraction) float64 {
+func (s *Service) calculatePersonalizationScore(artist artists.ArtistDocument, prefs *UserPreferenceAlias, interactions []UserInteraction) float64 {
 	score := 0.0
 
 	// Preference-based scoring
@@ -564,13 +467,13 @@ func (s *Service) calculatePersonalizationScore(artist ArtistDocument, prefs *Us
 }
 
 //==============================================================================
-// Other Helper Methods (unchanged from original)
+// Helper Methods (Database Access)
 //==============================================================================
 
 // getUserPreferences retrieves user preferences
-func (s *Service) getUserPreferences(ctx context.Context, userID primitive.ObjectID) (*UserPreference, *utils.AppError) {
-	var prefs UserPreference
-	err := s.preferences.FindOne(ctx, bson.M{"accountId": userID}).Decode(&prefs)
+func (s *Service) getUserPreferences(ctx context.Context, userID primitive.ObjectID) (*UserPreferenceAlias, *utils.AppError) {
+	var prefs UserPreferenceAlias
+	err := s.preferencesCol.FindOne(ctx, bson.M{"accountId": userID}).Decode(&prefs)
 
 	if err == mongo.ErrNoDocuments {
 		return nil, utils.NotFound("User preferences")
@@ -588,7 +491,7 @@ func (s *Service) getUserInteractions(ctx context.Context, userID primitive.Obje
 		SetSort(bson.M{"timestamp": -1}).
 		SetLimit(int64(limit))
 
-	cursor, err := s.interactions.Find(ctx, bson.M{"userId": userID}, opts)
+	cursor, err := s.interactionsCol.Find(ctx, bson.M{"userId": userID}, opts)
 	if err != nil {
 		return nil, utils.DatabaseError("find user interactions", err)
 	}
@@ -602,16 +505,22 @@ func (s *Service) getUserInteractions(ctx context.Context, userID primitive.Obje
 	return interactions, nil
 }
 
-// Cache invalidation helpers
+//==============================================================================
+// Cache Management
+//==============================================================================
+
+// invalidateUserCaches invalidates user-specific caches
 func (s *Service) invalidateUserCaches(userID primitive.ObjectID) {
 	cache.Del(fmt.Sprintf("user:recs:%s", userID.Hex()))
 }
 
+// invalidateTrendingCaches invalidates trending-related caches
 func (s *Service) invalidateTrendingCaches() {
 	// This would invalidate trending-related caches
 	// Implementation depends on your caching strategy
 }
 
+// addTrendingBoost adds trending boost to recommendations (placeholder)
 func (s *Service) addTrendingBoost(ctx context.Context, recommendations []RecommendationResult) []RecommendationResult {
 	// For now, return as-is - implement trending boost later
 	return recommendations

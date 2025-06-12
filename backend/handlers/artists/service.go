@@ -1,4 +1,4 @@
-// handlers/artists/service.go - Replace old methods with filtering-first approach
+// handlers/artists/service.go - Updated to use shared domain types
 package artists
 
 import (
@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/Bedrockdude10/Booker/backend/cache"
-	"github.com/Bedrockdude10/Booker/backend/domain"
+	"github.com/Bedrockdude10/Booker/backend/domain/artists"
 	"github.com/Bedrockdude10/Booker/backend/utils"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -25,12 +25,13 @@ func NewService(collections map[string]*mongo.Collection) *Service {
 	}
 }
 
-/////////////////////////////////////////////// ARTISTS - ALL WITH FILTERING SUPPORT
+/////////////////////////////////////////////// CORE ARTIST OPERATIONS
 
 // GetArtists retrieves a list of artists with optional filtering
-func (s *Service) GetArtists(ctx context.Context, filters FilterParams, limit, offset int) ([]ArtistDocument, *utils.AppError) {
-	// Build filter query using the function from filtering.go
-	filterQuery := BuildFilterQuery(filters)
+// This is the main method used by recommendations service
+func (s *Service) GetArtists(ctx context.Context, filters artists.FilterParams, limit, offset int) ([]artists.ArtistDocument, *utils.AppError) {
+	// Use shared filtering logic from domain
+	filterQuery := artists.BuildFilterQuery(filters)
 
 	// Set up find options
 	opts := options.Find()
@@ -48,7 +49,7 @@ func (s *Service) GetArtists(ctx context.Context, filters FilterParams, limit, o
 	}
 	defer cursor.Close(ctx)
 
-	var results []ArtistDocument
+	var results []artists.ArtistDocument
 	if err := cursor.All(ctx, &results); err != nil {
 		return nil, utils.DatabaseErrorLog(ctx, "decode artists", err)
 	}
@@ -56,81 +57,18 @@ func (s *Service) GetArtists(ctx context.Context, filters FilterParams, limit, o
 	return results, nil
 }
 
-// GetArtistsByGenre - simplified to use filtering system
-func (s *Service) GetArtistsByGenre(ctx context.Context, genre string, additionalFilters FilterParams) ([]ArtistDocument, *utils.AppError) {
-	// Validate genre
-	if !domain.HasGenre(genre) {
-		return nil, utils.ValidationErrorLog(ctx, "Invalid genre", "Genre '"+genre+"' is not valid")
-	}
-
-	// Add genre to filters
-	if !contains(additionalFilters.Genres, genre) {
-		additionalFilters.Genres = append(additionalFilters.Genres, genre)
-	}
-
-	// Check cache
-	cacheKey := fmt.Sprintf("artists:genre:%s:filters:%+v", genre, additionalFilters)
-	if cached, found := cache.Get(cacheKey); found {
-		if artists, ok := cached.([]ArtistDocument); ok {
-			return artists, nil
-		}
-	}
-
-	// Use unified filtering method
-	artists, appErr := s.GetArtists(ctx, additionalFilters, 0, 0)
-	if appErr != nil {
-		return nil, appErr
-	}
-
-	// Cache for 15 minutes
-	cache.Set(cacheKey, artists, 15*time.Minute)
-
-	return artists, nil
-}
-
-// GetArtistsByCity - simplified to use filtering system
-func (s *Service) GetArtistsByCity(ctx context.Context, city string, additionalFilters FilterParams) ([]ArtistDocument, *utils.AppError) {
-	if city == "" {
-		return nil, utils.ValidationErrorLog(ctx, "City is required")
-	}
-
-	// Add city to filters
-	if !contains(additionalFilters.Cities, city) {
-		additionalFilters.Cities = append(additionalFilters.Cities, city)
-	}
-
-	// Check cache
-	cacheKey := fmt.Sprintf("artists:city:%s:filters:%+v", city, additionalFilters)
-	if cached, found := cache.Get(cacheKey); found {
-		if artists, ok := cached.([]ArtistDocument); ok {
-			return artists, nil
-		}
-	}
-
-	// Use unified filtering method
-	artists, appErr := s.GetArtists(ctx, additionalFilters, 0, 0)
-	if appErr != nil {
-		return nil, appErr
-	}
-
-	// Cache for 10 minutes
-	cache.Set(cacheKey, artists, 10*time.Minute)
-
-	return artists, nil
-}
-
-// GetArtistByID - keep as is, no filtering needed for single artist lookup
-func (s *Service) GetArtistByID(ctx context.Context, id primitive.ObjectID) (*ArtistDocument, *utils.AppError) {
+// GetArtistByID retrieves a single artist by ID
+func (s *Service) GetArtistByID(ctx context.Context, id primitive.ObjectID) (*artists.ArtistDocument, *utils.AppError) {
 	key := fmt.Sprintf("artist:%s", id.Hex())
 
-	// Try cache
+	// Try cache first
 	if cached, found := cache.Get(key); found {
-		if artist, ok := cached.(*ArtistDocument); ok {
+		if artist, ok := cached.(*artists.ArtistDocument); ok {
 			return artist, nil
 		}
 	}
 
-	var artist ArtistDocument
+	var artist artists.ArtistDocument
 	err := s.artists.FindOne(ctx, bson.M{"_id": id}).Decode(&artist)
 
 	if err == mongo.ErrNoDocuments {
@@ -146,19 +84,16 @@ func (s *Service) GetArtistByID(ctx context.Context, id primitive.ObjectID) (*Ar
 	return &artist, nil
 }
 
-/////////////////////////////////////////////// CRUD OPERATIONS (unchanged)
+/////////////////////////////////////////////// CRUD OPERATIONS FOR ADMIN
 
-// CreateArtist - keep as is
-func (s *Service) CreateArtist(ctx context.Context, params CreateArtistParams) (*ArtistDocument, *utils.AppError) {
-	artist := ArtistDocument{
+// CreateArtist creates a new artist
+func (s *Service) CreateArtist(ctx context.Context, params artists.CreateArtistParams) (*artists.ArtistDocument, *utils.AppError) {
+	artist := artists.ArtistDocument{
 		ID:          primitive.NewObjectID(),
 		Name:        params.Name,
 		Genres:      params.Genres,
-		Manager:     params.Manager,
 		Cities:      params.Cities,
-		SpotifyID:   params.SpotifyID,
-		Rating:      0.0, // Default rating
-		RatingCount: 0,   // No ratings yet
+		ContactInfo: params.ContactInfo,
 	}
 
 	if _, err := s.artists.InsertOne(ctx, artist); err != nil {
@@ -175,19 +110,18 @@ func (s *Service) CreateArtist(ctx context.Context, params CreateArtistParams) (
 	return &artist, nil
 }
 
-// UpdateArtist - keep as is but invalidate more caches
-func (s *Service) UpdateArtist(ctx context.Context, id primitive.ObjectID, params CreateArtistParams) (*ArtistDocument, *utils.AppError) {
+// UpdateArtist performs a full update of an artist
+func (s *Service) UpdateArtist(ctx context.Context, id primitive.ObjectID, params artists.CreateArtistParams) (*artists.ArtistDocument, *utils.AppError) {
 	updateFields := bson.M{
-		"name":      params.Name,
-		"genres":    params.Genres,
-		"manager":   params.Manager,
-		"cities":    params.Cities,
-		"spotifyId": params.SpotifyID,
+		"name":        params.Name,
+		"genres":      params.Genres,
+		"cities":      params.Cities,
+		"contactInfo": params.ContactInfo,
 	}
 
 	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
 
-	var updatedArtist ArtistDocument
+	var updatedArtist artists.ArtistDocument
 	err := s.artists.FindOneAndUpdate(
 		ctx,
 		bson.M{"_id": id},
@@ -213,8 +147,8 @@ func (s *Service) UpdateArtist(ctx context.Context, id primitive.ObjectID, param
 	return &updatedArtist, nil
 }
 
-// UpdatePartialArtist - keep as is but invalidate more caches
-func (s *Service) UpdatePartialArtist(ctx context.Context, id primitive.ObjectID, params CreateArtistParams) (*ArtistDocument, *utils.AppError) {
+// UpdatePartialArtist performs a partial update of an artist
+func (s *Service) UpdatePartialArtist(ctx context.Context, id primitive.ObjectID, params artists.CreateArtistParams) (*artists.ArtistDocument, *utils.AppError) {
 	updateFields := bson.M{}
 
 	if params.Name != "" {
@@ -223,14 +157,13 @@ func (s *Service) UpdatePartialArtist(ctx context.Context, id primitive.ObjectID
 	if len(params.Genres) > 0 {
 		updateFields["genres"] = params.Genres
 	}
-	if params.Manager != "" {
-		updateFields["manager"] = params.Manager
-	}
 	if len(params.Cities) > 0 {
 		updateFields["cities"] = params.Cities
 	}
-	if params.SpotifyID != "" {
-		updateFields["spotifyId"] = params.SpotifyID
+
+	// Handle ContactInfo updates - only update if provided
+	if !isEmptyContactInfo(params.ContactInfo) {
+		updateFields["contactInfo"] = params.ContactInfo
 	}
 
 	if len(updateFields) == 0 {
@@ -239,7 +172,7 @@ func (s *Service) UpdatePartialArtist(ctx context.Context, id primitive.ObjectID
 
 	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
 
-	var updatedArtist ArtistDocument
+	var updatedArtist artists.ArtistDocument
 	err := s.artists.FindOneAndUpdate(
 		ctx,
 		bson.M{"_id": id},
@@ -261,7 +194,7 @@ func (s *Service) UpdatePartialArtist(ctx context.Context, id primitive.ObjectID
 	return &updatedArtist, nil
 }
 
-// DeleteArtist - keep as is
+// DeleteArtist deletes an artist
 func (s *Service) DeleteArtist(ctx context.Context, id primitive.ObjectID) *utils.AppError {
 	result, err := s.artists.DeleteOne(ctx, bson.M{"_id": id})
 	if err != nil {
@@ -278,16 +211,36 @@ func (s *Service) DeleteArtist(ctx context.Context, id primitive.ObjectID) *util
 	return nil
 }
 
-/////////////////////////////////////////////// HELPER FUNCTIONS
+/////////////////////////////////////////////// HELPER FUNCTIONS (PRIVATE)
 
-// Helper function to check if a string slice contains a value
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
+// Helper function to check if ContactInfo is empty
+func isEmptyContactInfo(contactInfo artists.ContactInfo) bool {
+	return contactInfo.Manager == "" &&
+		contactInfo.ManagerInfo == "" &&
+		contactInfo.BookingInfo == "" &&
+		contactInfo.LabelName == "" &&
+		contactInfo.LabelURL == "" &&
+		isEmptySocialMediaLinks(contactInfo.Social)
+}
+
+// Helper function to check if SocialMediaLinks is empty
+func isEmptySocialMediaLinks(social artists.SocialMediaLinks) bool {
+	return social.Spotify == "" &&
+		social.AppleMusic == "" &&
+		social.Bandcamp == "" &&
+		social.Instagram == "" &&
+		social.YouTube == "" &&
+		social.Facebook == "" &&
+		social.Twitter == "" &&
+		social.TikTok == "" &&
+		social.Website == "" &&
+		social.SoundCloud == "" &&
+		social.Discogs == "" &&
+		social.Beatport == "" &&
+		social.Deezer == "" &&
+		social.Pandora == "" &&
+		social.Email == "" &&
+		social.Phone == ""
 }
 
 // invalidateFilterCaches invalidates caches that might be affected by genre/city changes
@@ -301,8 +254,6 @@ func (s *Service) invalidateFilterCaches(genres []string, cities []string) {
 	for _, city := range cities {
 		cache.Del(fmt.Sprintf("artists:city:%s", city))
 	}
-
-	// Could also invalidate general filter caches here if needed
 }
 
 // getDefaultSort returns the default sort configuration from environment

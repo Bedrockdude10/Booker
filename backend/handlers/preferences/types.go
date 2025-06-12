@@ -10,25 +10,28 @@ import (
 
 // UserPreference represents a user's music and location preferences
 type UserPreference struct {
-	ID              primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
-	AccountID       primitive.ObjectID `bson:"accountID" json:"accountID" validate:"required"`
-	PreferredGenres []string           `bson:"preferredGenres" json:"preferredGenres" validate:"required,min=1,validgenres"`
-	PreferredCities []string           `bson:"preferredCities" json:"preferredCities" validate:"required,min=1"`
-	CreatedAt       time.Time          `bson:"createdAt" json:"createdAt"`
-	UpdatedAt       time.Time          `bson:"updatedAt" json:"updatedAt"`
+	ID              primitive.ObjectID   `bson:"_id,omitempty" json:"_id,omitempty"`
+	AccountID       primitive.ObjectID   `bson:"accountId" json:"accountId" validate:"required"`
+	PreferredGenres []string             `bson:"preferredGenres" json:"preferredGenres" validate:"required,min=1,validgenres"`
+	PreferredCities []string             `bson:"preferredCities" json:"preferredCities" validate:"required,min=1"`
+	FavoriteArtists []primitive.ObjectID `bson:"favoriteArtists,omitempty" json:"favoriteArtists,omitempty"`
+	CreatedAt       time.Time            `bson:"createdAt" json:"createdAt"`
+	UpdatedAt       time.Time            `bson:"updatedAt" json:"updatedAt"`
 }
 
 // CreateUserPreferenceParams for creating new user preferences
 type CreateUserPreferenceParams struct {
-	AccountID       primitive.ObjectID `json:"accountID" validate:"required"`
-	PreferredGenres []string           `json:"preferredGenres" validate:"required,min=1,validgenres"`
-	PreferredCities []string           `json:"preferredCities" validate:"required,min=1"`
+	AccountID       primitive.ObjectID   `json:"accountId" validate:"required"`
+	PreferredGenres []string             `json:"preferredGenres" validate:"required,min=1,validgenres"`
+	PreferredCities []string             `json:"preferredCities" validate:"required,min=1"`
+	FavoriteArtists []primitive.ObjectID `json:"favoriteArtists,omitempty"`
 }
 
 // UpdateUserPreferenceParams for updating user preferences
 type UpdateUserPreferenceParams struct {
-	PreferredGenres []string `json:"preferredGenres" validate:"omitempty,min=1,validgenres"`
-	PreferredCities []string `json:"preferredCities" validate:"omitempty,min=1"`
+	PreferredGenres []string             `json:"preferredGenres,omitempty" validate:"omitempty,min=1,validgenres"`
+	PreferredCities []string             `json:"preferredCities,omitempty" validate:"omitempty,min=1"`
+	FavoriteArtists []primitive.ObjectID `json:"favoriteArtists,omitempty"`
 }
 
 // Service struct for user preferences operations

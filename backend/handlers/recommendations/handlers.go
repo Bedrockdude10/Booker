@@ -1,4 +1,4 @@
-// handlers/recommendations/handlers.go - Streamlined with filtering built-in
+// handlers/recommendations/handlers.go - Updated to use domain types
 package recommendations
 
 import (
@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Bedrockdude10/Booker/backend/domain"
+	"github.com/Bedrockdude10/Booker/backend/domain/artists"
 	"github.com/Bedrockdude10/Booker/backend/utils"
 	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -16,6 +16,9 @@ import (
 type Handler struct {
 	service *Service
 }
+
+// RecommendationFilters type alias to use domain filtering
+type RecommendationFilters = artists.FilterParams
 
 //==============================================================================
 // Core Recommendation Endpoints - All with filtering support
@@ -31,11 +34,11 @@ func (h *Handler) GetPersonalizedRecommendations(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Parse filters from query parameters
-	filters := ParseRecommendationFilters(r)
+	// Parse filters from query parameters using domain filtering
+	filters := artists.ParseFilterParams(r)
 
-	// Validate filters
-	if appErr := ValidateRecommendationFilters(filters); appErr != nil {
+	// Validate filters using domain validation
+	if appErr := artists.ValidateFilterParams(filters); appErr != nil {
 		utils.HandleError(w, appErr)
 		return
 	}
@@ -71,8 +74,8 @@ func (h *Handler) GetRecommendationsByGenre(w http.ResponseWriter, r *http.Reque
 	// Sanitize genre to lowercase immediately
 	genre = strings.ToLower(strings.TrimSpace(genre))
 
-	// Parse additional filters (these are already sanitized by ParseRecommendationFilters)
-	filters := ParseRecommendationFilters(r)
+	// Parse additional filters using domain filtering
+	filters := artists.ParseFilterParams(r)
 
 	// Add the genre from URL to filters if not already present
 	if !containsString(filters.Genres, genre) {
@@ -80,7 +83,7 @@ func (h *Handler) GetRecommendationsByGenre(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Now validation will work because everything is lowercase
-	if appErr := ValidateRecommendationFilters(filters); appErr != nil {
+	if appErr := artists.ValidateFilterParams(filters); appErr != nil {
 		utils.HandleError(w, appErr)
 		return
 	}
@@ -118,15 +121,15 @@ func (h *Handler) GetRecommendationsByCity(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Parse additional filters
-	filters := ParseRecommendationFilters(r)
+	// Parse additional filters using domain filtering
+	filters := artists.ParseFilterParams(r)
 
 	// Add the city from URL to filters if not already present
 	if !containsString(filters.Cities, city) {
 		filters.Cities = append(filters.Cities, city)
 	}
 
-	if appErr := ValidateRecommendationFilters(filters); appErr != nil {
+	if appErr := artists.ValidateFilterParams(filters); appErr != nil {
 		utils.HandleError(w, appErr)
 		return
 	}
@@ -158,11 +161,11 @@ func (h *Handler) GetRecommendationsByCity(w http.ResponseWriter, r *http.Reques
 
 // GetGeneralRecommendations returns general recommendations with filtering
 func (h *Handler) GetGeneralRecommendations(w http.ResponseWriter, r *http.Request) {
-	// Parse filters from query parameters
-	filters := ParseRecommendationFilters(r)
+	// Parse filters from query parameters using domain filtering
+	filters := artists.ParseFilterParams(r)
 
-	// Validate filters
-	if appErr := ValidateRecommendationFilters(filters); appErr != nil {
+	// Validate filters using domain validation
+	if appErr := artists.ValidateFilterParams(filters); appErr != nil {
 		utils.HandleError(w, appErr)
 		return
 	}
@@ -184,97 +187,6 @@ func (h *Handler) GetGeneralRecommendations(w http.ResponseWriter, r *http.Reque
 
 	recommendations.RequestedBy = "general"
 	writeJSON(w, recommendations)
-}
-
-//==============================================================================
-// Filtering Support Functions
-//==============================================================================
-
-// ParseRecommendationFilters extracts filter parameters from HTTP request and sanitizes them
-func ParseRecommendationFilters(r *http.Request) RecommendationFilters {
-	params := RecommendationFilters{}
-	query := r.URL.Query()
-
-	// Parse genres - standardized on 'genres' parameter only
-	if genresStr := query.Get("genres"); genresStr != "" {
-		rawGenres := strings.Split(genresStr, ",")
-
-		// Normalize and deduplicate genres
-		genreSet := make(map[string]bool)
-		for _, genre := range rawGenres {
-			normalized := strings.ToLower(strings.TrimSpace(genre))
-			if normalized != "" && !genreSet[normalized] {
-				params.Genres = append(params.Genres, normalized)
-				genreSet[normalized] = true
-			}
-		}
-	}
-
-	// Parse cities (comma-separated or single) - cities don't need case normalization like genres
-	if citiesStr := query.Get("cities"); citiesStr != "" {
-		rawCities := strings.Split(citiesStr, ",")
-
-		// Normalize and deduplicate cities
-		citySet := make(map[string]bool)
-		for _, city := range rawCities {
-			normalized := strings.TrimSpace(city)
-			if normalized != "" && !citySet[normalized] {
-				params.Cities = append(params.Cities, normalized)
-				citySet[normalized] = true
-			}
-		}
-	}
-
-	// Parse rating filters
-	if minRatingStr := query.Get("minRating"); minRatingStr != "" {
-		if minRating, err := strconv.ParseFloat(minRatingStr, 64); err == nil {
-			params.MinRating = minRating
-		}
-	}
-
-	if maxRatingStr := query.Get("maxRating"); maxRatingStr != "" {
-		if maxRating, err := strconv.ParseFloat(maxRatingStr, 64); err == nil {
-			params.MaxRating = maxRating
-		}
-	}
-
-	// Parse boolean filters
-	if hasManagerStr := query.Get("hasManager"); hasManagerStr != "" {
-		if hasManager, err := strconv.ParseBool(hasManagerStr); err == nil {
-			params.HasManager = &hasManager
-		}
-	}
-
-	if hasSpotifyStr := query.Get("hasSpotify"); hasSpotifyStr != "" {
-		if hasSpotify, err := strconv.ParseBool(hasSpotifyStr); err == nil {
-			params.HasSpotify = &hasSpotify
-		}
-	}
-
-	return params
-}
-
-// ValidateRecommendationFilters validates the filter parameters
-func ValidateRecommendationFilters(filters RecommendationFilters) *utils.AppError {
-	// Validate genres (they should already be sanitized to lowercase)
-	for _, genre := range filters.Genres {
-		if !domain.HasGenre(genre) {
-			return utils.ValidationError("Invalid genre: " + genre)
-		}
-	}
-
-	// Validate rating range
-	if filters.MinRating < 0 || filters.MinRating > 5 {
-		return utils.ValidationError("MinRating must be between 0 and 5")
-	}
-	if filters.MaxRating < 0 || filters.MaxRating > 5 {
-		return utils.ValidationError("MaxRating must be between 0 and 5")
-	}
-	if filters.MinRating > 0 && filters.MaxRating > 0 && filters.MinRating > filters.MaxRating {
-		return utils.ValidationError("MinRating cannot be greater than MaxRating")
-	}
-
-	return nil
 }
 
 //==============================================================================
@@ -353,8 +265,8 @@ func (h *Handler) GetRecommendationsBatch(w http.ResponseWriter, r *http.Request
 	}
 	params.Filters.Genres = sanitizedGenres
 
-	// Validate filters
-	if appErr := ValidateRecommendationFilters(params.Filters); appErr != nil {
+	// Validate filters using domain validation
+	if appErr := artists.ValidateFilterParams(params.Filters); appErr != nil {
 		utils.HandleError(w, appErr)
 		return
 	}

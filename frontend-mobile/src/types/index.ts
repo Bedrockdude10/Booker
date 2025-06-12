@@ -11,6 +11,7 @@ export interface User {
   isActive: boolean;
 }
 
+// src/types/index.ts - Updated Artist interface
 export interface Artist {
   id: string;
   name: string;
@@ -27,6 +28,9 @@ export interface Artist {
       instagram?: string;
       spotify?: string;
       youtube?: string;
+      // Add new streaming services
+      bandcamp?: string;
+      appleMusic?: string;
     };
   };
   bookingRate?: {
@@ -37,7 +41,7 @@ export interface Artist {
   tags?: string[];
   rating?: number;
   createdAt: string;
-}
+} 
 
 export interface AuthState {
   user: User | null;
