@@ -1,26 +1,18 @@
-// src/components/artists/ArtistDetailHeader.tsx
+// src/components/artists/ArtistDetailHeader.tsx - Fixed to use helper functions and correct property names
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Artist } from '../../types';
+import { Artist, getArtistLocation, getArtistSocialLinks } from '../../types';
 import { theme } from '../../styles';
 
 interface ArtistDetailHeaderProps {
   artist: Artist;
 }
 
-type StreamingService = {
-  name: 'bandcamp' | 'spotify' | 'appleMusic' | 'instagram';
-  url: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
-  displayName: string;
-};
-
 export const ArtistDetailHeader = ({ artist }: ArtistDetailHeaderProps) => {
   const renderGenres = () => (
     <View style={styles.genreContainer}>
-      {artist.genre.map((genre, index) => (
+      {artist.genres.map((genre, index) => (
         <View key={index} style={styles.genreTag}>
           <Text style={styles.genreText}>{genre}</Text>
         </View>
@@ -28,105 +20,49 @@ export const ArtistDetailHeader = ({ artist }: ArtistDetailHeaderProps) => {
     </View>
   );
 
-  const handleStreamingServicePress = async (service: StreamingService) => {
+  const handleStreamingServicePress = async (url: string, serviceName: string) => {
     try {
-      const supported = await Linking.canOpenURL(service.url);
+      const supported = await Linking.canOpenURL(url);
       if (supported) {
-        await Linking.openURL(service.url);
+        await Linking.openURL(url);
         
         // Optional: Track the interaction (won't break if tracking fails)
         // You can uncomment this when you want to add analytics
-        // trackStreamingClick?.(artist.id, service.name);
+        // trackStreamingClick?.(artist._id, serviceName);
       } else {
         Alert.alert(
           'Cannot Open Link',
-          `Unable to open ${service.displayName}. Please check if the app is installed.`
+          `Unable to open ${serviceName}. Please check if the app is installed.`
         );
       }
     } catch (error) {
       console.error('Error opening URL:', error);
       Alert.alert(
         'Error',
-        `Sorry, there was an error opening ${service.displayName}.`
+        `Sorry, there was an error opening ${serviceName}.`
       );
     }
   };
 
-  const getAvailableStreamingServices = (): StreamingService[] => {
-    const services: StreamingService[] = [];
-    const social = artist.contactInfo.social;
-
-    if (!social) return services;
-
-    // Bandcamp - prioritized first
-    if (social.bandcamp) {
-      services.push({
-        name: 'bandcamp',
-        url: social.bandcamp,
-        icon: 'musical-notes',
-        color: '#1DA0C3',
-        displayName: 'Bandcamp',
-      });
-    }
-
-    // Spotify
-    if (social.spotify) {
-      services.push({
-        name: 'spotify',
-        url: social.spotify,
-        icon: 'play-circle',
-        color: '#1DB954',
-        displayName: 'Spotify',
-      });
-    }
-
-    // Apple Music
-    if (social.appleMusic) {
-      services.push({
-        name: 'appleMusic',
-        url: social.appleMusic,
-        icon: 'play',
-        color: '#FA243C',
-        displayName: 'Apple Music',
-      });
-    }
-
-    // Instagram
-    if (social.instagram) {
-      services.push({
-        name: 'instagram',
-        url: social.instagram,
-        icon: 'logo-instagram',
-        color: '#E4405F',
-        displayName: 'Instagram',
-      });
-    }
-
-    return services;
-  };
-
   const renderStreamingServices = () => {
-    const availableServices = getAvailableStreamingServices();
-
-    if (availableServices.length === 0) {
-      return null;
-    }
+    const socialLinks = getArtistSocialLinks(artist);
+    if (socialLinks.length === 0) return null;
 
     return (
       <View style={styles.streamingServicesContainer}>
         <Text style={styles.streamingServicesTitle}>Listen & Follow</Text>
         <View style={styles.streamingServices}>
-          {availableServices.map((service) => (
+          {socialLinks.map((link) => (
             <TouchableOpacity
-              key={service.name}
-              style={[styles.serviceButton, { borderColor: service.color }]}
-              onPress={() => handleStreamingServicePress(service)}
+              key={link.key}
+              style={[styles.serviceButton, { borderColor: link.color }]}
+              onPress={() => handleStreamingServicePress(link.url!, link.key)}
               activeOpacity={0.7}
             >
               <Ionicons 
-                name={service.icon} 
+                name={link.icon as any} 
                 size={24} 
-                color={service.color} 
+                color={link.color} 
               />
             </TouchableOpacity>
           ))}
@@ -138,13 +74,10 @@ export const ArtistDetailHeader = ({ artist }: ArtistDetailHeaderProps) => {
   return (
     <View style={styles.container}>
       <View style={styles.imageContainer}>
-        {artist.imageUrl ? (
-          <Image source={{ uri: artist.imageUrl }} style={styles.artistImage} />
-        ) : (
-          <View style={[styles.artistImage, styles.placeholderImage]}>
-            <Ionicons name="person" size={80} color={theme.colors.textSecondary} />
-          </View>
-        )}
+        {/* No imageUrl in API yet, so always show placeholder */}
+        <View style={[styles.artistImage, styles.placeholderImage]}>
+          <Ionicons name="person" size={80} color={theme.colors.textSecondary} />
+        </View>
       </View>
 
       <View style={styles.infoContainer}>
@@ -152,13 +85,16 @@ export const ArtistDetailHeader = ({ artist }: ArtistDetailHeaderProps) => {
         
         <View style={styles.locationContainer}>
           <Ionicons name="location-outline" size={16} color={theme.colors.textSecondary} />
-          <Text style={styles.locationText}>{artist.location}</Text>
+          <Text style={styles.locationText}>{getArtistLocation(artist)}</Text>
         </View>
 
         {artist.rating && (
           <View style={styles.ratingContainer}>
             <Ionicons name="star" size={16} color={theme.colors.warning} />
-            <Text style={styles.ratingText}>{artist.rating.toFixed(1)} rating</Text>
+            <Text style={styles.ratingText}>
+              {artist.rating.toFixed(1)} rating
+              {artist.ratingCount && ` (${artist.ratingCount})`}
+            </Text>
           </View>
         )}
 

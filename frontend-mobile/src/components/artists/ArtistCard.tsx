@@ -1,4 +1,4 @@
-// src/components/artists/ArtistCard.tsx
+// src/components/artists/ArtistCard.tsx - Fixed to use helper functions
 import React from 'react';
 import {
   View,
@@ -8,7 +8,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Artist } from '../../types';
+import { Artist, getArtistLocation, getArtistBio } from '../../types';
 import { globalStyles, theme } from '../../styles';
 
 interface ArtistCardProps {
@@ -18,8 +18,10 @@ interface ArtistCardProps {
 
 export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, onPress }) => {
   const renderGenres = () => {
-    const displayGenres = artist.genre.slice(0, 3);
-    const remainingCount = artist.genre.length - 3;
+    if (!artist.genres || artist.genres.length === 0) return null;
+    
+    const displayGenres = artist.genres.slice(0, 3);
+    const remainingCount = artist.genres.length - 3;
 
     return (
       <View style={styles.genreContainer}>
@@ -45,20 +47,44 @@ export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, onPress }) => {
         <Text style={[globalStyles.bodySmall, { marginLeft: theme.spacing.xs, fontWeight: theme.fontWeight.medium }]}>
           {artist.rating.toFixed(1)}
         </Text>
+        {artist.ratingCount && (
+          <Text style={[globalStyles.bodySmall, { marginLeft: theme.spacing.xs, color: theme.colors.textSecondary }]}>
+            ({artist.ratingCount})
+          </Text>
+        )}
       </View>
     );
+  };
+
+  const renderContactInfo = () => {
+    // Show manager info if available, otherwise show label info
+    const managerName = artist.contactInfo?.manager || artist.manager;
+    if (managerName) {
+      return (
+        <Text style={[globalStyles.bodySmall, { color: theme.colors.textSecondary, fontStyle: 'italic' }]}>
+          Managed by {managerName}
+        </Text>
+      );
+    }
+    
+    if (artist.contactInfo?.labelName) {
+      return (
+        <Text style={[globalStyles.bodySmall, { color: theme.colors.textSecondary, fontStyle: 'italic' }]}>
+          {artist.contactInfo.labelName}
+        </Text>
+      );
+    }
+    
+    return null;
   };
 
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.imageContainer}>
-        {artist.imageUrl ? (
-          <Image source={{ uri: artist.imageUrl }} style={styles.artistImage} />
-        ) : (
-          <View style={[styles.artistImage, styles.placeholderImage]}>
-            <Ionicons name="person" size={40} color={theme.colors.textSecondary} />
-          </View>
-        )}
+        {/* No imageUrl in API yet, so always show placeholder */}
+        <View style={[styles.artistImage, styles.placeholderImage]}>
+          <Ionicons name="person" size={40} color={theme.colors.textSecondary} />
+        </View>
       </View>
 
       <View style={globalStyles.flex1}>
@@ -72,22 +98,18 @@ export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, onPress }) => {
         <View style={[globalStyles.row, globalStyles.alignCenter, globalStyles.mb_sm]}>
           <Ionicons name="location-outline" size={14} color={theme.colors.textSecondary} />
           <Text style={[globalStyles.bodySmall, { marginLeft: theme.spacing.xs, flex: 1 }]} numberOfLines={1}>
-            {artist.location}
+            {getArtistLocation(artist)}
           </Text>
         </View>
 
         {renderGenres()}
 
         <Text style={[globalStyles.body, globalStyles.mb_sm]} numberOfLines={2}>
-          {artist.bio}
+          {getArtistBio(artist)}
         </Text>
 
         <View style={[globalStyles.row, globalStyles.spaceBetween, globalStyles.alignCenter]}>
-          {artist.bookingRate && (
-            <Text style={[globalStyles.bodySmall, { color: theme.colors.success, fontWeight: theme.fontWeight.semibold }]}>
-              {artist.bookingRate.currency}{artist.bookingRate.min.toLocaleString()} - {artist.bookingRate.currency}{artist.bookingRate.max.toLocaleString()}
-            </Text>
-          )}
+          {renderContactInfo()}
           <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
         </View>
       </View>

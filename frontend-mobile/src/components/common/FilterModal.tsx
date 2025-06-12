@@ -1,4 +1,4 @@
-// src/components/common/FilterModal.tsx
+// src/components/common/FilterModal.tsx - Fixed to use backend filter property names
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -29,15 +29,22 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   onClose,
   onClear,
 }) => {
-  const [selectedGenres, setSelectedGenres] = useState<string[]>(filters.genre || []);
-  const [location, setLocation] = useState(filters.location || '');
+  // Use backend property names
+  const [selectedGenres, setSelectedGenres] = useState<string[]>(filters.genres || []);
+  const [selectedCities, setSelectedCities] = useState<string[]>(filters.cities || []);
   const [minRating, setMinRating] = useState(filters.minRating?.toString() || '');
+  const [maxRating, setMaxRating] = useState(filters.maxRating?.toString() || '');
+  const [hasManager, setHasManager] = useState<boolean | undefined>(filters.hasManager);
+  const [hasSpotify, setHasSpotify] = useState<boolean | undefined>(filters.hasSpotify);
 
   useEffect(() => {
     // Reset form when filters change externally
-    setSelectedGenres(filters.genre || []);
-    setLocation(filters.location || '');
+    setSelectedGenres(filters.genres || []);
+    setSelectedCities(filters.cities || []);
     setMinRating(filters.minRating?.toString() || '');
+    setMaxRating(filters.maxRating?.toString() || '');
+    setHasManager(filters.hasManager);
+    setHasSpotify(filters.hasSpotify);
   }, [filters]);
 
   const toggleGenre = (genre: string) => {
@@ -48,19 +55,37 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     );
   };
 
+
+
+  const removeCity = (cityToRemove: string) => {
+    setSelectedCities(prev => prev.filter(city => city !== cityToRemove));
+  };
+
   const handleApply = () => {
     const newFilters: FilterOptions = {};
     
     if (selectedGenres.length > 0) {
-      newFilters.genre = selectedGenres;
+      newFilters.genres = selectedGenres;
     }
     
-    if (location.trim()) {
-      newFilters.location = location.trim();
+    if (selectedCities.length > 0) {
+      newFilters.cities = selectedCities;
     }
     
     if (minRating && !isNaN(parseFloat(minRating))) {
       newFilters.minRating = parseFloat(minRating);
+    }
+
+    if (maxRating && !isNaN(parseFloat(maxRating))) {
+      newFilters.maxRating = parseFloat(maxRating);
+    }
+
+    if (hasManager !== undefined) {
+      newFilters.hasManager = hasManager;
+    }
+
+    if (hasSpotify !== undefined) {
+      newFilters.hasSpotify = hasSpotify;
     }
 
     onApply(newFilters);
@@ -68,12 +93,20 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 
   const handleClear = () => {
     setSelectedGenres([]);
-    setLocation('');
+    setSelectedCities([]);
     setMinRating('');
+    setMaxRating('');
+    setHasManager(undefined);
+    setHasSpotify(undefined);
     onClear();
   };
 
-  const hasActiveFilters = selectedGenres.length > 0 || location.trim() || minRating;
+  const hasActiveFilters = selectedGenres.length > 0 || 
+                          selectedCities.length > 0 || 
+                          minRating || 
+                          maxRating ||
+                          hasManager !== undefined ||
+                          hasSpotify !== undefined;
 
   return (
     <Modal
@@ -129,29 +162,84 @@ export const FilterModal: React.FC<FilterModalProps> = ({
             </View>
           </View>
 
-          {/* Location Section */}
+          {/* Cities Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Location</Text>
+            <Text style={styles.sectionTitle}>Cities</Text>
+            {selectedCities.length > 0 && (
+              <View style={styles.selectedCitiesContainer}>
+                {selectedCities.map((city, index) => (
+                  <View key={index} style={styles.cityTag}>
+                    <Text style={styles.cityTagText}>{city}</Text>
+                    <TouchableOpacity onPress={() => removeCity(city)}>
+                      <Ionicons name="close-circle" size={16} color={COLORS.surface} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
             <TextInput
               style={styles.textInput}
-              value={location}
-              onChangeText={setLocation}
-              placeholder="Enter city or region"
+              placeholder="Enter cities separated by commas"
               placeholderTextColor={COLORS.textSecondary}
+              value={selectedCities.join(', ')}
+              onChangeText={(text) => {
+                const cities = text.split(',').map(city => city.trim()).filter(city => city.length > 0);
+                setSelectedCities(cities);
+              }}
             />
           </View>
 
           {/* Rating Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Minimum Rating</Text>
-            <TextInput
-              style={styles.textInput}
-              value={minRating}
-              onChangeText={setMinRating}
-              placeholder="e.g., 4.0"
-              placeholderTextColor={COLORS.textSecondary}
-              keyboardType="decimal-pad"
-            />
+            <Text style={styles.sectionTitle}>Rating Range</Text>
+            <View style={styles.ratingRow}>
+              <TextInput
+                style={[styles.textInput, styles.ratingInput]}
+                value={minRating}
+                onChangeText={setMinRating}
+                placeholder="Min (e.g., 3.0)"
+                placeholderTextColor={COLORS.textSecondary}
+                keyboardType="decimal-pad"
+              />
+              <Text style={styles.ratingDash}>—</Text>
+              <TextInput
+                style={[styles.textInput, styles.ratingInput]}
+                value={maxRating}
+                onChangeText={setMaxRating}
+                placeholder="Max (e.g., 5.0)"
+                placeholderTextColor={COLORS.textSecondary}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
+
+          {/* Boolean Filters */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Additional Filters</Text>
+            
+            <TouchableOpacity 
+              style={styles.booleanFilter}
+              onPress={() => setHasManager(hasManager === true ? undefined : true)}
+            >
+              <Text style={styles.booleanFilterText}>Has Manager</Text>
+              <Ionicons 
+                name={hasManager === true ? "checkmark-circle" : "ellipse-outline"} 
+                size={24} 
+                color={hasManager === true ? COLORS.primary : COLORS.textSecondary} 
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.booleanFilter}
+              onPress={() => setHasSpotify(hasSpotify === true ? undefined : true)}
+            >
+              <Text style={styles.booleanFilterText}>Has Spotify</Text>
+              <Ionicons 
+                name={hasSpotify === true ? "checkmark-circle" : "ellipse-outline"} 
+                size={24} 
+                color={hasSpotify === true ? COLORS.primary : COLORS.textSecondary} 
+              />
+            </TouchableOpacity>
           </View>
         </ScrollView>
 
@@ -241,6 +329,26 @@ const styles = StyleSheet.create({
   genreChipTextSelected: {
     color: COLORS.surface,
   },
+  selectedCitiesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  cityTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: 16,
+    gap: SPACING.xs,
+  },
+  cityTagText: {
+    color: COLORS.surface,
+    fontSize: 14,
+    fontWeight: '500',
+  },
   textInput: {
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -250,6 +358,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.text,
     backgroundColor: COLORS.surface,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  ratingInput: {
+    flex: 1,
+  },
+  ratingDash: {
+    fontSize: 18,
+    color: COLORS.textSecondary,
+  },
+  booleanFilter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  booleanFilterText: {
+    fontSize: 16,
+    color: COLORS.text,
   },
   footer: {
     padding: SPACING.md,

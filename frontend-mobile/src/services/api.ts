@@ -1,4 +1,4 @@
-// src/services/api.ts
+// src/services/api.ts - Updated to match backend API contract
 import { API_BASE_URL } from '../utils/constants';
 import { getAuthToken } from './storage';
 import { 
@@ -7,6 +7,7 @@ import {
   SignupCredentials, 
   User, 
   RecommendationParams,
+  RecommendationResponse,
 } from '../types';
 
 class ApiService {
@@ -69,35 +70,45 @@ class ApiService {
     });
   }
 
-  // Artist recommendation endpoints
-  async getPersonalizedRecommendations(params: RecommendationParams): Promise<Artist[]> {
+  // Artist recommendation endpoints - Updated to match backend
+  async getPersonalizedRecommendations(params: RecommendationParams): Promise<RecommendationResponse> {
     const queryParams = new URLSearchParams({
       limit: params.limit?.toString() || '20',
       offset: params.offset?.toString() || '0',
     });
 
-    if (params.filters?.genre?.length) {
-      queryParams.append('genre', params.filters.genre.join(','));
+    // Use backend filter property names
+    if (params.filters?.genres?.length) {
+      queryParams.append('genres', params.filters.genres.join(','));
     }
-    if (params.filters?.location) {
-      queryParams.append('location', params.filters.location);
+    if (params.filters?.cities?.length) {
+      queryParams.append('cities', params.filters.cities.join(','));
+    }
+    if (params.filters?.minRating) {
+      queryParams.append('minRating', params.filters.minRating.toString());
+    }
+    if (params.filters?.maxRating) {
+      queryParams.append('maxRating', params.filters.maxRating.toString());
+    }
+    if (params.filters?.hasManager !== undefined) {
+      queryParams.append('hasManager', params.filters.hasManager.toString());
+    }
+    if (params.filters?.hasSpotify !== undefined) {
+      queryParams.append('hasSpotify', params.filters.hasSpotify.toString());
     }
 
     return this.request(`/recommendations/user/${params.userId}?${queryParams}`);
   }
 
-  async getArtistsByGenre(genre: string): Promise<Artist[]> {
+  async getArtistsByGenre(genre: string): Promise<RecommendationResponse> {
     return this.request(`/recommendations/genre/${encodeURIComponent(genre)}`);
   }
 
-  async getArtistsByCity(city: string): Promise<Artist[]> {
+  async getArtistsByCity(city: string): Promise<RecommendationResponse> {
     return this.request(`/recommendations/city/${encodeURIComponent(city)}`);
   }
 
   async getArtistDetail(artistId: string): Promise<Artist> {
-    // Get the artist detail from the backend
-    // This should return the complete artist object including contactInfo.social
-    // which contains spotify, instagram, youtube, and potentially bandcamp, appleMusic
     return this.request(`/artists/${artistId}`);
   }
 

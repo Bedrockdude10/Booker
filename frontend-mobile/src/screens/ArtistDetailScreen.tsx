@@ -1,4 +1,4 @@
-// src/screens/artists/ArtistDetailScreen.tsx
+// src/screens/artists/ArtistDetailScreen.tsx - Fixed to use helper functions and correct property names
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -16,7 +16,15 @@ import { RouteProp, useRoute } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import { COLORS, SPACING } from '../utils/constants';
-import { MainStackParamList } from '../navigation/types';
+import { 
+  MainStackParamList, 
+  getArtistId, 
+  getArtistLocation, 
+  getArtistBio, 
+  getArtistEmail, 
+  getArtistWebsite,
+  getArtistSocialLinks 
+} from '../types';
 
 type ArtistDetailRouteProp = RouteProp<MainStackParamList, 'ArtistDetail'>;
 
@@ -41,7 +49,7 @@ export const ArtistDetailScreen: React.FC = () => {
     try {
       await apiService.trackInteraction({
         userId: user.id,
-        artistId: artist.id,
+        artistId: getArtistId(artist),
         type: 'view',
       });
     } catch (error) {
@@ -57,12 +65,21 @@ export const ArtistDetailScreen: React.FC = () => {
       if (user) {
         await apiService.trackInteraction({
           userId: user.id,
-          artistId: artist.id,
+          artistId: getArtistId(artist),
           type: 'contact',
         });
       }
 
-      const email = artist.contactInfo.email;
+      const email = getArtistEmail(artist);
+      if (!email) {
+        Alert.alert(
+          'Contact Information',
+          'No email address available for this artist. Please check their social media or website for contact details.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
       const subject = `Booking Inquiry - ${artist.name}`;
       const body = `Hi ${artist.name},\n\nI'm interested in discussing a potential booking opportunity.\n\nBest regards,\n${user?.name}`;
       
@@ -74,7 +91,7 @@ export const ArtistDetailScreen: React.FC = () => {
       } else {
         Alert.alert(
           'Contact Artist',
-          `Email: ${email}\nPhone: ${artist.contactInfo.phone || 'Not provided'}`,
+          `Email: ${email}`,
           [
             { text: 'Copy Email', onPress: () => copyToClipboard(email) },
             { text: 'OK' },
@@ -109,7 +126,7 @@ export const ArtistDetailScreen: React.FC = () => {
 
   const renderGenres = () => (
     <View style={styles.genreContainer}>
-      {artist.genre.map((genre, index) => (
+      {artist.genres.map((genre, index) => (
         <View key={index} style={styles.genreTag}>
           <Text style={styles.genreText}>{genre}</Text>
         </View>
@@ -118,36 +135,90 @@ export const ArtistDetailScreen: React.FC = () => {
   );
 
   const renderSocialLinks = () => {
-    const social = artist.contactInfo.social;
-    if (!social) return null;
+    const socialLinks = getArtistSocialLinks(artist);
+    if (socialLinks.length === 0) return null;
 
     return (
       <View style={styles.socialContainer}>
-        <Text style={styles.sectionTitle}>Social Media</Text>
+        <Text style={styles.sectionTitle}>Social Media & Streaming</Text>
         <View style={styles.socialLinks}>
-          {social.instagram && (
+          {socialLinks.map((link) => (
             <TouchableOpacity
-              style={styles.socialButton}
-              onPress={() => handleSocialLink(social.instagram!, 'Instagram')}
+              key={link.key}
+              style={[styles.socialButton, { backgroundColor: link.color }]}
+              onPress={() => handleSocialLink(link.url!, link.key)}
             >
-              <Ionicons name="logo-instagram" size={24} color={COLORS.surface} />
+              <Ionicons name={link.icon as any} size={24} color={COLORS.surface} />
             </TouchableOpacity>
-          )}
-          {social.spotify && (
-            <TouchableOpacity
-              style={[styles.socialButton, { backgroundColor: '#1DB954' }]}
-              onPress={() => handleSocialLink(social.spotify!, 'Spotify')}
-            >
-              <Ionicons name="musical-note" size={24} color={COLORS.surface} />
-            </TouchableOpacity>
-          )}
-          {social.youtube && (
-            <TouchableOpacity
-              style={[styles.socialButton, { backgroundColor: '#FF0000' }]}
-              onPress={() => handleSocialLink(social.youtube!, 'YouTube')}
-            >
-              <Ionicons name="logo-youtube" size={24} color={COLORS.surface} />
-            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  const renderContactInfo = () => {
+    const email = getArtistEmail(artist);
+    const website = getArtistWebsite(artist);
+    const managerName = artist.contactInfo?.manager || artist.manager;
+    const labelName = artist.contactInfo?.labelName;
+    
+    const hasContactInfo = email || website || managerName || labelName;
+    if (!hasContactInfo) return null;
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Contact Information</Text>
+        
+        {email && (
+          <View style={styles.contactRow}>
+            <Ionicons name="mail-outline" size={20} color={COLORS.textSecondary} />
+            <Text style={styles.contactText}>{email}</Text>
+          </View>
+        )}
+        
+        {website && (
+          <TouchableOpacity
+            style={styles.contactRow}
+            onPress={() => handleSocialLink(website, 'Website')}
+          >
+            <Ionicons name="globe-outline" size={20} color={COLORS.primary} />
+            <Text style={[styles.contactText, { color: COLORS.primary }]}>
+              {website}
+            </Text>
+          </TouchableOpacity>
+        )}
+        
+        {managerName && (
+          <View style={styles.contactRow}>
+            <Ionicons name="person-outline" size={20} color={COLORS.textSecondary} />
+            <Text style={styles.contactText}>
+              Manager: {managerName}
+            </Text>
+          </View>
+        )}
+        
+        {labelName && (
+          <View style={styles.contactRow}>
+            <Ionicons name="business-outline" size={20} color={COLORS.textSecondary} />
+            <Text style={styles.contactText}>
+              Label: {labelName}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderRating = () => {
+    if (!artist.rating) return null;
+    
+    return (
+      <View style={styles.ratingContainer}>
+        <View style={styles.ratingStars}>
+          <Ionicons name="star" size={20} color="#FFD700" />
+          <Text style={styles.ratingText}>{artist.rating.toFixed(1)}</Text>
+          {artist.ratingCount && (
+            <Text style={styles.ratingCount}>({artist.ratingCount} reviews)</Text>
           )}
         </View>
       </View>
@@ -158,23 +229,21 @@ export const ArtistDetailScreen: React.FC = () => {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Artist Image */}
       <View style={styles.imageContainer}>
-        {artist.imageUrl ? (
-          <Image source={{ uri: artist.imageUrl }} style={styles.artistImage} />
-        ) : (
-          <View style={[styles.artistImage, styles.placeholderImage]}>
-            <Ionicons name="person" size={80} color={COLORS.textSecondary} />
-          </View>
-        )}
+        {/* No imageUrl in API yet, so always show placeholder */}
+        <View style={[styles.artistImage, styles.placeholderImage]}>
+          <Ionicons name="person" size={80} color={COLORS.textSecondary} />
+        </View>
       </View>
 
       <View style={styles.contentContainer}>
-        {/* Artist Name & Location */}
+        {/* Artist Name, Location & Rating */}
         <View style={styles.headerInfo}>
           <Text style={styles.artistName}>{artist.name}</Text>
           <View style={styles.locationContainer}>
             <Ionicons name="location-outline" size={16} color={COLORS.textSecondary} />
-            <Text style={styles.locationText}>{artist.location}</Text>
+            <Text style={styles.locationText}>{getArtistLocation(artist)}</Text>
           </View>
+          {renderRating()}
         </View>
 
         {/* Genres */}
@@ -183,64 +252,33 @@ export const ArtistDetailScreen: React.FC = () => {
         {/* Bio */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
-          <Text style={styles.bioText}>{artist.bio}</Text>
+          <Text style={styles.bioText}>{getArtistBio(artist)}</Text>
         </View>
-
-        {/* Booking Rate */}
-        {artist.bookingRate && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Booking Rate</Text>
-            <Text style={styles.rateText}>
-              {artist.bookingRate.currency}{artist.bookingRate.min.toLocaleString()} - {artist.bookingRate.currency}{artist.bookingRate.max.toLocaleString()}
-            </Text>
-          </View>
-        )}
 
         {/* Contact Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contact Information</Text>
-          <View style={styles.contactRow}>
-            <Ionicons name="mail-outline" size={20} color={COLORS.textSecondary} />
-            <Text style={styles.contactText}>{artist.contactInfo.email}</Text>
-          </View>
-          {artist.contactInfo.phone && (
-            <View style={styles.contactRow}>
-              <Ionicons name="call-outline" size={20} color={COLORS.textSecondary} />
-              <Text style={styles.contactText}>{artist.contactInfo.phone}</Text>
-            </View>
-          )}
-          {artist.contactInfo.website && (
-            <TouchableOpacity
-              style={styles.contactRow}
-              onPress={() => handleSocialLink(artist.contactInfo.website!, 'Website')}
-            >
-              <Ionicons name="globe-outline" size={20} color={COLORS.primary} />
-              <Text style={[styles.contactText, { color: COLORS.primary }]}>
-                {artist.contactInfo.website}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        {renderContactInfo()}
 
         {/* Social Media */}
         {renderSocialLinks()}
 
         {/* Contact Button */}
-        <TouchableOpacity
-          style={[styles.contactButton, loading && styles.contactButtonDisabled]}
-          onPress={handleContact}
-          disabled={loading}
-        >
-          <Ionicons 
-            name="mail" 
-            size={20} 
-            color={COLORS.surface} 
-            style={styles.contactButtonIcon}
-          />
-          <Text style={styles.contactButtonText}>
-            {loading ? 'Opening...' : 'Contact Artist'}
-          </Text>
-        </TouchableOpacity>
+        {getArtistEmail(artist) && (
+          <TouchableOpacity
+            style={[styles.contactButton, loading && styles.contactButtonDisabled]}
+            onPress={handleContact}
+            disabled={loading}
+          >
+            <Ionicons 
+              name="mail" 
+              size={20} 
+              color={COLORS.surface} 
+              style={styles.contactButtonIcon}
+            />
+            <Text style={styles.contactButtonText}>
+              {loading ? 'Opening...' : 'Contact Artist'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </ScrollView>
   );
@@ -280,9 +318,28 @@ const styles = StyleSheet.create({
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: SPACING.sm,
   },
   locationText: {
     fontSize: 16,
+    color: COLORS.textSecondary,
+    marginLeft: SPACING.xs,
+  },
+  ratingContainer: {
+    marginTop: SPACING.xs,
+  },
+  ratingStars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginLeft: SPACING.xs,
+  },
+  ratingCount: {
+    fontSize: 14,
     color: COLORS.textSecondary,
     marginLeft: SPACING.xs,
   },
@@ -318,11 +375,6 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     lineHeight: 24,
   },
-  rateText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: COLORS.success,
-  },
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -339,13 +391,13 @@ const styles = StyleSheet.create({
   },
   socialLinks: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: SPACING.sm,
   },
   socialButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#E1306C', // Instagram color as default
     justifyContent: 'center',
     alignItems: 'center',
   },

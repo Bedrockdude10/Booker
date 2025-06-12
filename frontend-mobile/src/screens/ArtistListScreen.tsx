@@ -1,4 +1,4 @@
-// src/screens/artists/ArtistListScreen.tsx
+// src/screens/artists/ArtistListScreen.tsx - Fixed to handle RecommendationResponse
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -13,7 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
-import { Artist, FilterOptions } from '../types';
+import { Artist, FilterOptions, getArtistId } from '../types';
 import { ArtistCard } from '../components/artists/ArtistCard';
 import { FilterModal } from '../components/common/FilterModal';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
@@ -53,16 +53,20 @@ export const ArtistListScreen: React.FC = () => {
         filters,
       });
 
+      // Extract artists from the RecommendationResponse
+      const newArtists = response.data.map(item => item.artist);
+
       if (reset) {
-        setArtists(response);
+        setArtists(newArtists);
       } else {
-        setArtists(prev => [...prev, ...response]);
+        setArtists(prev => [...prev, ...newArtists]);
       }
 
-      setHasMore(response.length === 20);
-      setOffset(currentOffset + response.length);
+      setHasMore(newArtists.length === 20);
+      setOffset(currentOffset + newArtists.length);
       setError(null);
     } catch (err) {
+      console.error('Error loading artists:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to load artists';
       setError(errorMessage);
       
@@ -92,11 +96,11 @@ export const ArtistListScreen: React.FC = () => {
 
   const handleArtistPress = async (artist: Artist) => {
     try {
-      // Track interaction
+      // Track interaction using getArtistId helper
       if (user) {
         await apiService.trackInteraction({
           userId: user.id,
-          artistId: artist.id,
+          artistId: getArtistId(artist),
           type: 'view',
         });
       }
@@ -179,7 +183,7 @@ export const ArtistListScreen: React.FC = () => {
         <FlatList
           data={artists}
           renderItem={renderArtist}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => getArtistId(item)}
           contentContainerStyle={styles.listContainer}
           refreshControl={
             <RefreshControl
@@ -269,4 +273,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
