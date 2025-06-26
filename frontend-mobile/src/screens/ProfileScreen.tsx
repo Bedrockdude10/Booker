@@ -16,8 +16,41 @@ import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import { User } from '../types';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { COLORS, SPACING } from '../utils/constants';
-import { styles } from './ProfileScreen.styles';
+import { globalStyles, theme } from '../styles';
+
+// Only screen-specific styles that can't be achieved with global styles
+const screenStyles = StyleSheet.create({
+  avatarContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  header: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xl,
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  userRole: {
+    fontSize: theme.fontSize.md,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.fontWeight.medium,
+  },
+  editingButtons: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  footer: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xl,
+  },
+});
 
 export const ProfileScreen = () => {
   const { user, logout } = useAuth();
@@ -81,21 +114,29 @@ export const ProfileScreen = () => {
     multiline = false,
     keyboardType: 'default' | 'email-address' | 'phone-pad' = 'default'
   ) => (
-    <View style={styles.fieldContainer}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+    <View style={globalStyles.inputContainer}>
+      <Text style={globalStyles.inputLabel}>{label}</Text>
       {editing ? (
         <TextInput
-          style={[styles.textInput, multiline && styles.textInputMultiline]}
+          style={[
+            globalStyles.textInput,
+            globalStyles.inputWrapper,
+            multiline && { minHeight: 100, textAlignVertical: 'top' }
+          ]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={COLORS.textSecondary}
+          placeholderTextColor={theme.colors.textSecondary}
           multiline={multiline}
           numberOfLines={multiline ? 4 : 1}
           keyboardType={keyboardType}
         />
       ) : (
-        <Text style={[styles.fieldValue, !value && styles.fieldValueEmpty]}>
+        <Text style={[
+          globalStyles.body,
+          globalStyles.py_sm,
+          !value && { color: theme.colors.textSecondary, fontStyle: 'italic' }
+        ]}>
           {value || placeholder || 'Not provided'}
         </Text>
       )}
@@ -108,19 +149,19 @@ export const ProfileScreen = () => {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={globalStyles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-            <Ionicons name="person" size={60} color={COLORS.textSecondary} />
+        <View style={screenStyles.header}>
+          <View style={screenStyles.avatarContainer}>
+            <Ionicons name="person" size={60} color={theme.colors.textSecondary} />
           </View>
-          <Text style={styles.userName}>{user.name}</Text>
-          <Text style={styles.userRole}>Promoter</Text>
+          <Text style={globalStyles.h2}>{user.name}</Text>
+          <Text style={screenStyles.userRole}>Promoter</Text>
         </View>
 
-        <View style={styles.formContainer}>
+        <View style={globalStyles.p_md}>
           {renderField(
             'Full Name',
             formData.name || '',
@@ -162,53 +203,79 @@ export const ProfileScreen = () => {
           )}
         </View>
 
-        <View style={styles.buttonContainer}>
+        <View style={globalStyles.p_md}>
           {editing ? (
-            <View style={styles.editingButtons}>
+            <View style={screenStyles.editingButtons}>
               <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
+                style={[
+                  globalStyles.button,
+                  globalStyles.buttonSecondary,
+                  globalStyles.flex1
+                ]}
                 onPress={handleCancel}
                 disabled={loading}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={globalStyles.buttonTextSecondary}>Cancel</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
-                style={[styles.button, styles.saveButton, loading && styles.buttonDisabled]}
+                style={[
+                  globalStyles.button,
+                  globalStyles.buttonPrimary,
+                  globalStyles.flex1,
+                  loading && globalStyles.buttonDisabled
+                ]}
                 onPress={handleSave}
                 disabled={loading}
               >
                 {loading ? (
-                  <LoadingSpinner size="small" color={COLORS.surface} />
+                  <LoadingSpinner size="small" color={theme.colors.textInverse} />
                 ) : (
-                  <>
-                    <Ionicons name="checkmark" size={20} color={COLORS.surface} />
-                    <Text style={styles.saveButtonText}>Save</Text>
-                  </>
+                  <View style={[globalStyles.row, globalStyles.alignCenter]}>
+                    <Ionicons name="checkmark" size={20} color={theme.colors.textInverse} />
+                    <Text style={[globalStyles.buttonTextPrimary, { marginLeft: theme.spacing.sm }]}>
+                      Save
+                    </Text>
+                  </View>
                 )}
               </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity
-              style={[styles.button, styles.editButton]}
+              style={[globalStyles.button, globalStyles.buttonOutline, globalStyles.mb_md]}
               onPress={() => setEditing(true)}
             >
-              <Ionicons name="pencil" size={20} color={COLORS.primary} />
-              <Text style={styles.editButtonText}>Edit Profile</Text>
+              <View style={[globalStyles.row, globalStyles.alignCenter]}>
+                <Ionicons name="pencil" size={20} color={theme.colors.primary} />
+                <Text style={[globalStyles.buttonTextOutline, { marginLeft: theme.spacing.sm }]}>
+                  Edit Profile
+                </Text>
+              </View>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity
-            style={[styles.button, styles.logoutButton]}
+            style={[
+              globalStyles.button,
+              globalStyles.buttonSecondary,
+              { borderColor: theme.colors.error, borderWidth: 2 }
+            ]}
             onPress={handleLogout}
           >
-            <Ionicons name="log-out-outline" size={20} color={COLORS.error} />
-            <Text style={styles.logoutButtonText}>Sign Out</Text>
+            <View style={[globalStyles.row, globalStyles.alignCenter]}>
+              <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
+              <Text style={[globalStyles.buttonTextSecondary, { 
+                color: theme.colors.error,
+                marginLeft: theme.spacing.sm 
+              }]}>
+                Sign Out
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
+        <View style={screenStyles.footer}>
+          <Text style={globalStyles.bodySmall}>
             Member since {new Date(user.createdAt).toLocaleDateString()}
           </Text>
         </View>
