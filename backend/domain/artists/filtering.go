@@ -3,12 +3,14 @@ package artists
 
 import (
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/Bedrockdude10/Booker/backend/domain"
 	"github.com/Bedrockdude10/Booker/backend/utils"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // FilterParams represents filtering options for artists
@@ -111,17 +113,29 @@ func BuildFilterQuery(filters FilterParams) bson.M {
 	query := bson.M{}
 	andConditions := []bson.M{}
 
-	// Genre filtering (OR logic within genres)
+	// Genre filtering - CASE-INSENSITIVE using regex
 	if len(filters.Genres) > 0 {
+		genreRegexes := make([]primitive.Regex, len(filters.Genres))
+		for i, genre := range filters.Genres {
+			// Escape special regex characters and create case-insensitive pattern
+			escaped := regexp.QuoteMeta(genre)
+			genreRegexes[i] = primitive.Regex{Pattern: "^" + escaped + "$", Options: "i"}
+		}
 		andConditions = append(andConditions, bson.M{
-			"genres": bson.M{"$in": filters.Genres},
+			"genres": bson.M{"$in": genreRegexes},
 		})
 	}
 
-	// City filtering (OR logic within cities)
+	// City filtering - CASE-INSENSITIVE using regex
 	if len(filters.Cities) > 0 {
+		cityRegexes := make([]primitive.Regex, len(filters.Cities))
+		for i, city := range filters.Cities {
+			// Escape special regex characters and create case-insensitive pattern
+			escaped := regexp.QuoteMeta(city)
+			cityRegexes[i] = primitive.Regex{Pattern: "^" + escaped + "$", Options: "i"}
+		}
 		andConditions = append(andConditions, bson.M{
-			"cities": bson.M{"$in": filters.Cities},
+			"cities": bson.M{"$in": cityRegexes},
 		})
 	}
 
