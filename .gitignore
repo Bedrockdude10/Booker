@@ -47,3 +47,12 @@ app-example
 bin
 lib
 *.pyc
+agent-demo/src/agents/__pycache__/artist_discovery.cpython-313.pyc
+agent-demo/src/agents/__pycache__/base.cpython-313.pyc
+agent-demo/src/agents/__pycache__/booking_advisor.cpython-313.pyc
+agent-demo/src/agents/__pycache__/coordinator.cpython-313.pyc
+agent-demo/src/agents/__pycache__/venue_matching.cpython-313.pyc
+agent-demo/src/config/__pycache__/settings.cpython-313.pyc
+agent-demo/src/memory/__pycache__/conversation.cpython-313.pyc
+agent-demo/src/observability/__pycache__/tracer.cpython-313.pyc
+agent-demo/src/orchestration/__pycache__/executor.cpython-313.pyc
