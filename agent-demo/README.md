@@ -123,6 +123,36 @@ I have a band that plays indie rock with folk influences. They're from Boston an
 - **Audit Logging**: Complete compliance trail for all requests
 - **Tool Validation**: Ensures agents only use authorized tools
 
+## MCP Server Integration
+
+The system exposes all tools via [Model Context Protocol (MCP)](https://modelcontextprotocol.io), Anthropic's open standard for AI agent interoperability.
+
+### Why This Matters
+
+MCP acts as a **universal adapter layer** for AI tools. Rather than building custom integrations for each client, the tools are exposed once through a standardized protocol that any MCP-compatible client can discover and use. This demonstrates enterprise-level thinking about how AI agents should communicate in production environments.
+
+**Key capabilities:**
+- **Protocol-based tool discovery**: Clients query available tools at runtime rather than hardcoding integrations
+- **Client agnostic**: Claude Desktop, custom agents, or any MCP-compatible system can consume these tools
+- **Decoupled evolution**: Tools and clients evolve independently without breaking changes
+
+### Available Tools via MCP
+
+| Tool | Description |
+|------|-------------|
+| `search_artists` | Search by genre, location, capacity preferences |
+| `search_venues` | Search by location, capacity range, genres booked |
+| `get_artist_details` | Complete artist profile with bio, contact, social links |
+| `get_venue_details` | Complete venue profile with booking contact, pay range |
+
+### Usage
+```bash
+# Run standalone
+python -m booker_mcp.server
+```
+
+For Claude Desktop integration, see [booker_mcp/README.md](booker_mcp/README.md).
+
 ## Architecture
 
 ### System Overview
