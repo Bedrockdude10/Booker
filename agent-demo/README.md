@@ -223,7 +223,7 @@ User Input
     ↓
 [Layer 2] Budget Control & Rate Limiting (pyrate-limiter)
     ↓
-[Layer 3] PII Detection & Anonymization (Presidio)
+<!-- [Layer 3] PII Detection & Anonymization (Presidio) -->
     ↓
 [Layer 4] Agent Execution with Monitoring
     │
@@ -378,14 +378,14 @@ Data is located in [data/mock_data.py](agent-demo/data/mock_data.py).
 - **Toxic Content Filtering**: Prevents inappropriate language
 - **Tool Validation**: Ensures agents only use authorized tools
 
-### PII Protection
+<!-- ### PII Protection
 
 Presidio detects and protects 50+ PII types:
 - Personal information (SSN, credit cards, names)
 - Contact details (emails, phone numbers, addresses)
 - Location data and IP addresses
 
-Business contact information (artist/venue emails, venue phones) is allowed.
+Business contact information (artist/venue emails, venue phones) is allowed. -->
 
 ### Cost Controls
 
@@ -453,7 +453,7 @@ All requests logged to `logs/audit/`:
 - **Observability**: Custom tracer, structured logging, metrics
 - **Governance**:
   - NVIDIA NeMo Guardrails (agentic AI safety)
-  - Microsoft Presidio (PII protection)
+  <!-- - Microsoft Presidio (PII protection) -->
   - pyrate-limiter (cost control)
 
 ## Troubleshooting
