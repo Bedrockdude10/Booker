@@ -1,0 +1,37 @@
+# Development Governance Configuration
+# Relaxed settings for faster local development
+
+governance:
+  # Enable governance but with relaxed settings
+  enabled: true
+
+  # NeMo Guardrails - disabled for faster iteration
+  nemo_enabled: false
+  nemo_config_path: "src/governance/rails_config"
+
+  # PII Protection - disabled for dev
+  pii_enabled: false
+  pii_language: "en"
+  pii_allowed_entities:
+    - "ARTIST_EMAIL"
+    - "VENUE_PHONE"
+    - "VENUE_EMAIL"
+
+  # Budget Controls - alert only, no enforcement
+  budgets_enabled: true
+  budgets_enforce: false  # Alert only in dev
+  global_daily_tokens: 10000000     # 10M tokens per day (generous)
+  per_session_tokens: 500000        # 500K per session
+  per_user_daily_tokens: 1000000    # 1M per user per day
+  requests_per_minute: 100          # 100 requests/min (no throttling)
+  tokens_per_hour: 1000000          # 1M tokens/hour
+
+  # Runtime Limits - relaxed
+  max_execution_seconds: 60
+  max_tool_calls: 50
+  max_llm_calls: 20
+
+  # Audit Logging - violations only
+  audit_enabled: true
+  audit_log_all_requests: false  # Only log violations in dev
+  audit_retention_days: 7

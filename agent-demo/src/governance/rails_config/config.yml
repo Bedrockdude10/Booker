@@ -1,0 +1,69 @@
+# NeMo Guardrails Configuration for Booker Agent Demo
+# This config provides agentic AI safety for multi-agent artist/venue matching
+
+models:
+  - type: main
+    engine: anthropic
+    model: claude-sonnet-4-5-20250929
+
+# Define core safety rails
+rails:
+  input:
+    flows:
+      - jailbreak detection
+      - check input safety
+      - check blocked topics
+
+  output:
+    flows:
+      - check output safety
+      - check factual grounding
+
+  execution:
+    flows:
+      - check allowed tools
+
+# Input guardrails - prevent off-topic and unsafe content
+define user ask off topic:
+  "politics"
+  "violence"
+  "illegal activities"
+  "hate speech"
+  "self-harm"
+
+# Output guardrails - prevent unsafe responses
+define bot refuse to respond:
+  "I cannot assist with that request as it falls outside my purpose of helping with artist and venue matching."
+
+# Define allowed tools for this agentic system
+define allowed tools:
+  "search_artists"
+  "search_venues"
+  "get_artist_details"
+  "get_venue_details"
+
+# Jailbreak detection - prevent prompt injection
+define user jailbreak attempt:
+  "ignore previous instructions"
+  "disregard all previous"
+  "you are now"
+  "new instructions"
+  "system:"
+  "override"
+
+# Topic alignment - keep conversations focused on booking
+define valid booking topics:
+  "artists"
+  "venues"
+  "concerts"
+  "gigs"
+  "bookings"
+  "performances"
+  "music"
+  "genres"
+  "capacity"
+  "availability"
+
+# Factual grounding - prevent hallucination
+define bot provide verified info:
+  "I will only provide information based on the artist and venue data available in our system."

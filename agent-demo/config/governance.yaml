@@ -1,0 +1,37 @@
+# Production Governance Configuration
+# Agent-focused safety & governance for Booker multi-agent system
+
+governance:
+  # Master switch - set to false to disable all governance
+  enabled: true
+
+  # NeMo Guardrails Configuration
+  nemo_enabled: true
+  nemo_config_path: "src/governance/rails_config"
+
+  # PII Protection (Presidio)
+  pii_enabled: true
+  pii_language: "en"
+  pii_allowed_entities:
+    - "ARTIST_EMAIL"      # Allow artist business emails
+    - "VENUE_PHONE"       # Allow venue business phones
+    - "VENUE_EMAIL"       # Allow venue business emails
+
+  # Budget & Cost Control (pyrate-limiter)
+  budgets_enabled: true
+  budgets_enforce: true   # Set to false for alert-only mode
+  global_daily_tokens: 1000000      # 1M tokens per day globally
+  per_session_tokens: 50000         # 50K tokens per session
+  per_user_daily_tokens: 100000     # 100K tokens per user per day
+  requests_per_minute: 30           # 30 requests per minute per session
+  tokens_per_hour: 100000           # 100K tokens per hour globally
+
+  # Runtime Limits
+  max_execution_seconds: 30
+  max_tool_calls: 20
+  max_llm_calls: 10
+
+  # Audit Logging
+  audit_enabled: true
+  audit_log_all_requests: true
+  audit_retention_days: 90

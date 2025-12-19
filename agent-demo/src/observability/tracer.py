@@ -1,100 +1,58 @@
-"""Execution tracing for agent workflows."""
+# src/observability/tracer.py (replace entire file)
+"""OpenTelemetry-based tracer - drop-in replacement for custom tracer."""
 
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.sdk.resources import Resource
 from contextlib import contextmanager
-from contextvars import ContextVar
-from datetime import datetime
-from typing import Any, Generator
-import threading
+from typing import Any
 
-from src.models.trace import Trace, TraceEvent, TraceEventType
+# Initialize provider
+_resource = Resource.create({"service.name": "booker-agents"})
+_provider = TracerProvider(resource=_resource)
+_provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+trace.set_tracer_provider(_provider)
 
-# Context variable for current trace
-_current_trace: ContextVar[Trace | None] = ContextVar("current_trace", default=None)
+_tracer = trace.get_tracer("booker.agents")
 
 
 class Tracer:
-    """Manages execution traces for agent workflows."""
-
-    def __init__(self):
-        self._traces: list[Trace] = []
-        self._lock = threading.Lock()
-
+    """OpenTelemetry-based tracer with API compatible with existing code."""
+    
+    def record_event(self, event_type: str, agent_name: str, data: dict[str, Any]):
+        """Record an event as a span event on the current span."""
+        span = trace.get_current_span()
+        if span.is_recording():
+            span.add_event(event_type, attributes={
+                "agent": agent_name,
+                **{k: str(v)[:100] for k, v in data.items()}  # Truncate values
+            })
+    
+    def record_tokens(self, tokens_in: int, tokens_out: int):
+        """Record token usage on current span."""
+        span = trace.get_current_span()
+        if span.is_recording():
+            span.set_attribute("tokens.in", tokens_in)
+            span.set_attribute("tokens.out", tokens_out)
+            span.set_attribute("tokens.total", tokens_in + tokens_out)
+    
     @contextmanager
-    def start_trace(self) -> Generator[Trace, None, None]:
-        """Start a new trace for a request."""
-        trace = Trace()
-        _current_trace.set(trace)
-        try:
-            yield trace
-        finally:
-            trace.end_time = datetime.now()
-            with self._lock:
-                self._traces.append(trace)
-            _current_trace.set(None)
-
-    def record_event(
-        self,
-        event_type: TraceEventType,
-        agent_name: str,
-        data: dict[str, Any],
-        parent_event_id: str | None = None
-    ) -> TraceEvent:
-        """Record an event in the current trace."""
-        trace = _current_trace.get()
-        if trace is None:
-            # If no trace is active, create a dummy event
-            return TraceEvent(
-                event_type=event_type,
-                agent_name=agent_name,
-                data=data,
-                parent_event_id=parent_event_id
-            )
-
-        event = TraceEvent(
-            event_type=event_type,
-            agent_name=agent_name,
-            data=data,
-            parent_event_id=parent_event_id
-        )
-        trace.add_event(event)
-        return event
-
+    def timed_event(self, event_type: str, agent_name: str, data: dict[str, Any]):
+        """Context manager that creates a child span."""
+        with _tracer.start_as_current_span(f"{agent_name}.{event_type}") as span:
+            for k, v in data.items():
+                span.set_attribute(k, str(v)[:100])
+            yield span
+    
     @contextmanager
-    def timed_event(
-        self,
-        event_type: TraceEventType,
-        agent_name: str,
-        data: dict[str, Any]
-    ) -> Generator[TraceEvent, None, None]:
-        """Record event with automatic duration tracking."""
-        start = datetime.now()
-        event = self.record_event(event_type, agent_name, data)
-        try:
-            yield event
-        finally:
-            event.duration_ms = (datetime.now() - start).total_seconds() * 1000
-
-    def record_tokens(self, tokens_in: int, tokens_out: int) -> None:
-        """Record token usage in the current trace."""
-        trace = _current_trace.get()
-        if trace:
-            trace.total_tokens_in += tokens_in
-            trace.total_tokens_out += tokens_out
-
-    def get_current_trace(self) -> Trace | None:
-        """Get the current active trace."""
-        return _current_trace.get()
-
-    def get_recent_traces(self, limit: int = 10) -> list[Trace]:
-        """Get recent traces for display."""
-        with self._lock:
-            return list(reversed(self._traces[-limit:]))
-
-    def clear_traces(self) -> None:
-        """Clear all stored traces."""
-        with self._lock:
-            self._traces.clear()
+    def trace_request(self, session_id: str, user_input: str):
+        """Start a new trace for a user request."""
+        with _tracer.start_as_current_span("request") as span:
+            span.set_attribute("session_id", session_id)
+            span.set_attribute("input_length", len(user_input))
+            yield span
 
 
-# Global tracer instance
+# Global instance (matches existing API)
 tracer = Tracer()
