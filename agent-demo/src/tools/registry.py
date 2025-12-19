@@ -7,11 +7,25 @@ Routes tool calls to:
 
 from typing import Any, Callable
 from .api_client import get_client
+from .mongo_client import get_mongo_client
+from .embeddings import generate_embedding
+from .vector_search import (
+    build_artist_vector_search_pipeline,
+    build_venue_vector_search_pipeline
+)
 
 
 # =============================================================================
 # ARTISTS - Connected to Go Backend
 # =============================================================================
+
+def _extract_id(doc: dict) -> str:
+    """Extract ID from MongoDB document (handles ObjectId format)."""
+    raw_id = doc.get("id", doc.get("_id", ""))
+    if isinstance(raw_id, dict) and "$oid" in raw_id:
+        return raw_id["$oid"]
+    return str(raw_id)
+
 
 def _map_artist(raw: dict) -> dict:
     """Map Go API response to agent-expected schema."""
@@ -70,6 +84,89 @@ def get_artist_details(artist_id: str) -> dict[str, Any]:
     if raw is None:
         return {"error": f"Artist with ID '{artist_id}' not found"}
     return _map_artist(raw)
+
+
+# =============================================================================
+# SEMANTIC SEARCH - Direct MongoDB Vector Search
+# =============================================================================
+
+def semantic_search_artists(
+    description: str,
+    genre: str | None = None,
+    location: str | None = None,
+    limit: int = 10
+) -> list[dict[str, Any]]:
+    """Search for artists using semantic similarity with optional filters."""
+    if not description or not description.strip():
+        return {"error": "Description parameter is required for semantic search"}
+
+    try:
+        query_embedding = generate_embedding(description)
+        pipeline = build_artist_vector_search_pipeline(
+            query_embedding=query_embedding,
+            genre=genre,
+            location=location,
+            limit=limit
+        )
+
+        mongo = get_mongo_client()
+        results = list(mongo.db.artists.aggregate(pipeline))
+
+        return [
+            {
+                "id": _extract_id(r),
+                "name": r.get("name", "Unknown"),
+                "genres": r.get("genres", []),
+                "location": r.get("location", "Unknown"),
+                "typical_venue_capacity": r.get("typical_venue_capacity", "Unknown"),
+                "search_score": round(r.get("search_score", 0.0), 3),
+            }
+            for r in results
+        ]
+    except Exception as e:
+        return {"error": f"Semantic search failed: {str(e)}"}
+
+
+def semantic_search_venues(
+    description: str,
+    location: str | None = None,
+    min_capacity: int | None = None,
+    max_capacity: int | None = None,
+    genre: str | None = None,
+    limit: int = 10
+) -> list[dict[str, Any]]:
+    """Search for venues using semantic similarity with optional filters."""
+    if not description or not description.strip():
+        return {"error": "Description parameter is required for semantic search"}
+
+    try:
+        query_embedding = generate_embedding(description)
+        pipeline = build_venue_vector_search_pipeline(
+            query_embedding=query_embedding,
+            location=location,
+            min_capacity=min_capacity,
+            max_capacity=max_capacity,
+            genre=genre,
+            limit=limit
+        )
+
+        mongo = get_mongo_client()
+        results = list(mongo.db.venues.aggregate(pipeline))
+
+        return [
+            {
+                "id": _extract_id(r),
+                "name": r.get("name", "Unknown"),
+                "location": r.get("location", "Unknown"),
+                "capacity": r.get("capacity", 0),
+                "genres_booked": r.get("genres_booked", []),
+                "venue_type": r.get("venue_type", "Unknown"),
+                "search_score": round(r.get("search_score", 0.0), 3),
+            }
+            for r in results
+        ]
+    except Exception as e:
+        return {"error": f"Semantic search failed: {str(e)}"}
 
 
 # =============================================================================
@@ -135,6 +232,8 @@ _TOOL_REGISTRY: dict[str, Callable] = {
     "search_venues": search_venues,
     "get_artist_details": get_artist_details,
     "get_venue_details": get_venue_details,
+    "semantic_search_artists": semantic_search_artists,
+    "semantic_search_venues": semantic_search_venues,
 }
 
 
