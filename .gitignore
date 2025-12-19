@@ -56,3 +56,5 @@ agent-demo/src/config/__pycache__/settings.cpython-313.pyc
 agent-demo/src/memory/__pycache__/conversation.cpython-313.pyc
 agent-demo/src/observability/__pycache__/tracer.cpython-313.pyc
 agent-demo/src/orchestration/__pycache__/executor.cpython-313.pyc
+*.pyc
+agent-demo/src/tools/__pycache__/registry.cpython-313.pyc

@@ -6,7 +6,7 @@ Routes tool calls to:
 """
 
 from typing import Any, Callable
-from api_client import get_client
+from .api_client import get_client
 
 
 # =============================================================================
