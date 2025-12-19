@@ -113,16 +113,10 @@ func BuildFilterQuery(filters FilterParams) bson.M {
 	query := bson.M{}
 	andConditions := []bson.M{}
 
-	// Genre filtering - CASE-INSENSITIVE using regex
+	// Genre filtering (simple exact match - data is normalized on write)
 	if len(filters.Genres) > 0 {
-		genreRegexes := make([]primitive.Regex, len(filters.Genres))
-		for i, genre := range filters.Genres {
-			// Escape special regex characters and create case-insensitive pattern
-			escaped := regexp.QuoteMeta(genre)
-			genreRegexes[i] = primitive.Regex{Pattern: "^" + escaped + "$", Options: "i"}
-		}
 		andConditions = append(andConditions, bson.M{
-			"genres": bson.M{"$in": genreRegexes},
+			"genres": bson.M{"$in": filters.Genres},
 		})
 	}
 

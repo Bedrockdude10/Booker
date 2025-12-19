@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Bedrockdude10/Booker/backend/cache"
@@ -23,6 +24,15 @@ func NewService(collections map[string]*mongo.Collection) *Service {
 		artists:         collections["artists"],
 		userPreferences: collections["userPreferences"],
 	}
+}
+
+// normalizeGenres converts all genres to lowercase for consistent storage/querying
+func normalizeGenres(genres []string) []string {
+	normalized := make([]string, len(genres))
+	for i, g := range genres {
+		normalized[i] = strings.ToLower(strings.TrimSpace(g))
+	}
+	return normalized
 }
 
 /////////////////////////////////////////////// CORE ARTIST OPERATIONS
@@ -91,7 +101,7 @@ func (s *Service) CreateArtist(ctx context.Context, params artists.CreateArtistP
 	artist := artists.ArtistDocument{
 		ID:          primitive.NewObjectID(),
 		Name:        params.Name,
-		Genres:      params.Genres,
+		Genres:      normalizeGenres(params.Genres),
 		Cities:      params.Cities,
 		ContactInfo: params.ContactInfo,
 	}
@@ -114,7 +124,7 @@ func (s *Service) CreateArtist(ctx context.Context, params artists.CreateArtistP
 func (s *Service) UpdateArtist(ctx context.Context, id primitive.ObjectID, params artists.CreateArtistParams) (*artists.ArtistDocument, *utils.AppError) {
 	updateFields := bson.M{
 		"name":        params.Name,
-		"genres":      params.Genres,
+		"genres":      normalizeGenres(params.Genres),
 		"cities":      params.Cities,
 		"contactInfo": params.ContactInfo,
 	}
@@ -155,7 +165,7 @@ func (s *Service) UpdatePartialArtist(ctx context.Context, id primitive.ObjectID
 		updateFields["name"] = params.Name
 	}
 	if len(params.Genres) > 0 {
-		updateFields["genres"] = params.Genres
+		updateFields["genres"] = normalizeGenres(params.Genres)
 	}
 	if len(params.Cities) > 0 {
 		updateFields["cities"] = params.Cities
