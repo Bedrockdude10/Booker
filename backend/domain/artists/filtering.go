@@ -15,6 +15,7 @@ import (
 
 // FilterParams represents filtering options for artists
 type FilterParams struct {
+	Name       string   `json:"name,omitempty"`
 	Genres     []string `json:"genres,omitempty"`
 	Cities     []string `json:"cities,omitempty"`
 	MinRating  float64  `json:"minRating,omitempty"`
@@ -27,6 +28,11 @@ type FilterParams struct {
 func ParseFilterParams(r *http.Request) FilterParams {
 	params := FilterParams{}
 	query := r.URL.Query()
+
+	// Parse name
+	if nameStr := query.Get("name"); nameStr != "" {
+		params.Name = strings.TrimSpace(nameStr)
+	}
 
 	// Parse genres (comma-separated)
 	if genresStr := query.Get("genres"); genresStr != "" {
@@ -112,6 +118,14 @@ func ValidateFilterParams(filters FilterParams) *utils.AppError {
 func BuildFilterQuery(filters FilterParams) bson.M {
 	query := bson.M{}
 	andConditions := []bson.M{}
+
+	// Name filtering - CASE-INSENSITIVE partial match
+	if filters.Name != "" {
+		escaped := regexp.QuoteMeta(filters.Name)
+		andConditions = append(andConditions, bson.M{
+			"name": primitive.Regex{Pattern: escaped, Options: "i"},
+		})
+	}
 
 	// Genre filtering (simple exact match - data is normalized on write)
 	if len(filters.Genres) > 0 {
