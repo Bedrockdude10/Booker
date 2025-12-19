@@ -74,7 +74,7 @@ class CoordinatorAgent(BaseAgent):
             AgentResponse from the coordinator or routed specialist
         """
         tracer.record_event(
-            TraceEventType.AGENT_START,
+            TraceEventType.AGENT_START.value,
             self.name,
             {"query": user_message[:100]}
         )
@@ -101,7 +101,7 @@ class CoordinatorAgent(BaseAgent):
 
         # No routing - coordinator responding directly
         tracer.record_event(
-            TraceEventType.AGENT_END,
+            TraceEventType.AGENT_END.value,
             self.name,
             {"response_type": "direct"}
         )
@@ -142,7 +142,7 @@ class CoordinatorAgent(BaseAgent):
         query = routing.get("refined_query", original_message)
 
         tracer.record_event(
-            TraceEventType.ROUTING_DECISION,
+            TraceEventType.ROUTING_DECISION.value,
             self.name,
             {
                 "target_agent": target,
@@ -164,7 +164,7 @@ class CoordinatorAgent(BaseAgent):
             self.logger.error(error_msg, target=target)
 
             tracer.record_event(
-                TraceEventType.ERROR,
+                TraceEventType.ERROR.value,
                 self.name,
                 {"error": error_msg, "target": target}
             )
@@ -184,7 +184,7 @@ class CoordinatorAgent(BaseAgent):
         )
 
         tracer.record_event(
-            TraceEventType.AGENT_END,
+            TraceEventType.AGENT_END.value,
             self.name,
             {
                 "routed_to": target,

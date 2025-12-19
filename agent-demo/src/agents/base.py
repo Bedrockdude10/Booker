@@ -79,7 +79,7 @@ class BaseAgent(ABC):
             Tuple of (response, tokens_in, tokens_out)
         """
         with tracer.timed_event(
-            TraceEventType.LLM_REQUEST,
+            TraceEventType.LLM_REQUEST.value,
             self.name,
             {
                 "message_count": len(messages),
@@ -106,7 +106,7 @@ class BaseAgent(ABC):
         tracer.record_tokens(tokens_in, tokens_out)
 
         tracer.record_event(
-            TraceEventType.LLM_RESPONSE,
+            TraceEventType.LLM_RESPONSE.value,
             self.name,
             {
                 "tokens_in": tokens_in,

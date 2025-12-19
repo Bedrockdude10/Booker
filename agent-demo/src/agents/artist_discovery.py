@@ -41,7 +41,7 @@ class ArtistDiscoveryAgent(BaseAgent):
             AgentResponse with artist recommendations
         """
         tracer.record_event(
-            TraceEventType.AGENT_START,
+            TraceEventType.AGENT_START.value,
             self.name,
             {"query": user_message[:100]}
         )
@@ -74,7 +74,7 @@ class ArtistDiscoveryAgent(BaseAgent):
             tool_results = []
             for tc in tool_calls:
                 tracer.record_event(
-                    TraceEventType.TOOL_CALL,
+                    TraceEventType.TOOL_CALL.value,
                     self.name,
                     {"tool": tc["name"], "input": tc["input"]}
                 )
@@ -84,7 +84,7 @@ class ArtistDiscoveryAgent(BaseAgent):
                 result = execute_tool(tc["name"], tc["input"])
 
                 tracer.record_event(
-                    TraceEventType.TOOL_RESULT,
+                    TraceEventType.TOOL_RESULT.value,
                     self.name,
                     {"tool": tc["name"], "result_size": len(str(result))}
                 )
@@ -99,7 +99,7 @@ class ArtistDiscoveryAgent(BaseAgent):
             messages.append({"role": "user", "content": tool_results})
 
         tracer.record_event(
-            TraceEventType.AGENT_END,
+            TraceEventType.AGENT_END.value,
             self.name,
             {"iterations": iteration + 1, "total_tokens": total_tokens_in + total_tokens_out}
         )

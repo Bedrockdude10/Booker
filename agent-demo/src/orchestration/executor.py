@@ -2,6 +2,7 @@
 
 from typing import Any
 import uuid
+import time
 
 from src.agents.coordinator import CoordinatorAgent
 from src.agents.artist_discovery import ArtistDiscoveryAgent
@@ -57,8 +58,9 @@ class AgentOrchestrator:
             Dictionary containing response and metadata
         """
         request_id = str(uuid.uuid4())
+        start_time = time.time()
 
-        with tracer.start_trace() as trace:
+        with tracer.trace_request(session_id, user_message) as trace:
             logger.set_context(request_id=request_id, session_id=session_id)
 
             logger.info(
@@ -87,19 +89,25 @@ class AgentOrchestrator:
                     metadata=response.metadata
                 )
 
+                # Calculate duration
+                duration_ms = (time.time() - start_time) * 1000
+
                 # Record metrics
                 metrics.record_agent_call(
                     session_id,
                     "coordinator",
                     response.tokens_in,
                     response.tokens_out,
-                    trace.get_duration_ms() or 0
+                    duration_ms
                 )
+
+                # Get trace ID from OpenTelemetry span context
+                trace_id = format(trace.get_span_context().trace_id, '032x') if trace.is_recording() else request_id
 
                 logger.info(
                     "Message processed successfully",
                     total_tokens=response.total_tokens,
-                    duration_ms=trace.get_duration_ms()
+                    duration_ms=duration_ms
                 )
 
                 logger.clear_context()
@@ -107,7 +115,7 @@ class AgentOrchestrator:
                 return {
                     "content": response.content,
                     "metadata": response.metadata,
-                    "trace_id": trace.trace_id,
+                    "trace_id": trace_id,
                     "tokens": {
                         "in": response.tokens_in,
                         "out": response.tokens_out,
@@ -119,13 +127,19 @@ class AgentOrchestrator:
             except Exception as e:
                 logger.error(f"Error processing message: {str(e)}", error=str(e))
 
+                # Calculate duration
+                duration_ms = (time.time() - start_time) * 1000
+
+                # Get trace ID from OpenTelemetry span context
+                trace_id = format(trace.get_span_context().trace_id, '032x') if trace.is_recording() else request_id
+
                 # Record error in metrics
                 metrics.record_agent_call(
                     session_id,
                     "coordinator",
                     0,
                     0,
-                    trace.get_duration_ms() or 0,
+                    duration_ms,
                     error=True
                 )
 
@@ -134,7 +148,7 @@ class AgentOrchestrator:
                 return {
                     "content": f"I apologize, but I encountered an error processing your request: {str(e)}",
                     "metadata": {"error": True, "error_message": str(e)},
-                    "trace_id": trace.trace_id,
+                    "trace_id": trace_id,
                     "tokens": {"in": 0, "out": 0, "total": 0},
                     "success": False
                 }

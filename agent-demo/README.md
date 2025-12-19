@@ -42,6 +42,61 @@ The application will open at `http://localhost:8501`
    - "I need an indie rock venue with 200-300 capacity"
    - "Recommend some artist-venue pairings for jazz"
 
+## Complex Test Queries
+
+These queries thoroughly exercise the multi-agent system's capabilities:
+
+### Query 1: Multi-City Tour Planning (High Complexity)
+```
+I manage a folk rock band from Nashville that typically draws 200-500 people. We're planning our first Boston tour next month and need 2-3 venue recommendations. What venues would be good matches and what pay range should we expect? Also, are there any local Boston folk artists we should know about for potential collaboration?
+```
+**Tests**: Multi-agent routing, cross-city synthesis, multiple tool calls, practical booking advice
+
+### Query 2: Festival Planning (Very High Complexity)
+```
+I'm planning a jazz festival in Boston and need help pairing artists with venues. I want to book 3 different sized venues - a small intimate listening room (under 150 capacity), a mid-sized jazz club (200-400), and a larger theater (500+). Can you recommend appropriate jazz artists for each venue based on their typical draw, and explain why each pairing makes sense?
+```
+**Tests**: Complex filtering across capacity tiers, multiple artist-venue pairings, Booking Advisor synthesis
+
+### Query 3: Venue Manager Perspective (High Complexity)
+```
+I'm the booking manager at Paradise Rock Club in Boston. We have an opening next Friday and typically book rock and indie acts. Our capacity is around 900. I want to book a local band that can draw well and fits our vibe. Who would you recommend and what should I expect to pay them? Also, which other Boston venues should I watch as competitors?
+```
+**Tests**: Reverse matching (venue → artists), local filtering, pay range estimation, competitive analysis
+
+### Query 4: Conversation Memory Test (Multi-Turn)
+**Turn 1:**
+```
+Show me electronic music venues in Boston
+```
+**Turn 2:**
+```
+Which of those would work for a DJ who typically draws 500-1000 people?
+```
+**Turn 3:**
+```
+Perfect! Can you give me the booking contact and typical pay range for the best match?
+```
+**Tests**: Conversation memory across turns, context retention, progressive refinement
+
+### Query 5: Edge Case Handling (Complexity + Error Handling)
+```
+I need a metal venue in Nashville with capacity under 200. If that doesn't exist in your database, what would be the closest alternative? Could I book a metal band at a different type of venue, and would that work?
+```
+**Tests**: Handling queries with no exact matches, creative problem-solving, fallback recommendations
+
+### Query 6: Budget-Constrained Booking (High Complexity)
+```
+I'm organizing a small country music showcase in Nashville with a tight budget. I need 2-3 venues that book country/americana acts with capacities under 300, and local Nashville artists who would be appropriate. What's the most affordable combination you can recommend while still maintaining quality?
+```
+**Tests**: Budget awareness, multiple venue/artist recommendations, location/genre filtering, value optimization
+
+### Query 7: Genre Crossover Analysis (Medium-High Complexity)
+```
+I have a band that plays indie rock with folk influences. They're from Boston and typically play to 150-300 people. What venues in Boston would work for this kind of crossover sound, and would you recommend positioning them as indie rock or folk for booking purposes?
+```
+**Tests**: Multi-genre reasoning, genre strategy advice, capacity matching, booking positioning
+
 ## Features
 
 ### Multi-Agent Architecture
@@ -63,7 +118,7 @@ The application will open at `http://localhost:8501`
 
 ### Production-Ready Governance
 - **Content Safety**: NeMo Guardrails for jailbreak detection and topic control
-- **PII Protection**: Microsoft Presidio for detecting and anonymizing sensitive data
+<!-- - **PII Protection**: Microsoft Presidio for detecting and anonymizing sensitive data -->
 - **Cost Controls**: Budget limits and rate limiting with pyrate-limiter
 - **Audit Logging**: Complete compliance trail for all requests
 - **Tool Validation**: Ensures agents only use authorized tools

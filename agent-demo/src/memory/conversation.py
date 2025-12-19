@@ -73,7 +73,7 @@ class ConversationMemory:
         message = conv.add_message(MessageRole.USER, content, metadata)
 
         tracer.record_event(
-            TraceEventType.MEMORY_WRITE,
+            TraceEventType.MEMORY_WRITE.value,
             "conversation_memory",
             {
                 "operation": "add_user_message",
@@ -101,7 +101,7 @@ class ConversationMemory:
         message = conv.add_message(MessageRole.ASSISTANT, content, metadata)
 
         tracer.record_event(
-            TraceEventType.MEMORY_WRITE,
+            TraceEventType.MEMORY_WRITE.value,
             "conversation_memory",
             {
                 "operation": "add_assistant_message",
@@ -124,7 +124,7 @@ class ConversationMemory:
             return []
 
         tracer.record_event(
-            TraceEventType.MEMORY_READ,
+            TraceEventType.MEMORY_READ.value,
             "conversation_memory",
             {
                 "operation": "get_api_messages",
