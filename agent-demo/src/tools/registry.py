@@ -6,7 +6,7 @@ Routes tool calls to:
 """
 
 from typing import Any, Callable
-from .api_client import get_client
+from api_client import get_client
 
 
 # =============================================================================
@@ -43,11 +43,12 @@ def _map_artist(raw: dict) -> dict:
 def search_artists(
     genre: str | None = None,
     location: str | None = None,
+    name: str | None = None,
     max_venue_capacity: int | None = None
 ) -> list[dict[str, Any]]:
     """Search artists via Go backend."""
     client = get_client()
-    raw_artists = client.search_artists(genres=genre, cities=location)
+    raw_artists = client.search_artists(genres=genre, cities=location, name=name)
     
     return [
         {

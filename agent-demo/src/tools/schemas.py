@@ -3,17 +3,21 @@
 # Artist search tool
 SEARCH_ARTISTS_SCHEMA = {
     "name": "search_artists",
-    "description": "Search for artists by genre, location, and capacity preferences. Returns a list of matching artists with basic information.",
+    "description": "Search for artists by name, genre, location, and capacity preferences. Returns a list of matching artists with basic information.",
     "input_schema": {
         "type": "object",
         "properties": {
+            "name": {
+                "type": "string",
+                "description": "Artist name to search for (partial match, case-insensitive). Use this when looking for a specific artist."
+            },
             "genre": {
                 "type": "string",
-                "description": "Genre to filter by (e.g., 'Rock', 'Jazz', 'Country'). Case-insensitive partial match."
+                "description": "Genre to filter by (e.g., 'rock', 'jazz', 'country'). Case-insensitive."
             },
             "location": {
                 "type": "string",
-                "description": "Location to filter by (e.g., 'Boston', 'Nashville'). Case-insensitive partial match."
+                "description": "Location/city to filter by (e.g., 'boston', 'nashville'). Case-insensitive."
             },
             "max_venue_capacity": {
                 "type": "integer",

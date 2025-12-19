@@ -14,9 +14,16 @@ class BookerClient:
         )
         self._client = httpx.Client(base_url=self.base_url, timeout=timeout)
 
-    def search_artists(self, genres: str | None = None, cities: str | None = None) -> list[dict]:
+    def search_artists(self, genres: str | None = None, cities: str | None = None, name: str | None = None) -> list[dict]:
         """GET /api/artists with optional filters."""
-        params = {k: v for k, v in {"genres": genres, "cities": cities}.items() if v}
+        # Normalize to lowercase to match database conventions
+        params = {}
+        if genres:
+            params["genres"] = genres.lower()
+        if cities:
+            params["cities"] = cities.lower()
+        if name:
+            params["name"] = name.lower()
         resp = self._client.get("/api/artists", params=params)
         resp.raise_for_status()
         data = resp.json()
