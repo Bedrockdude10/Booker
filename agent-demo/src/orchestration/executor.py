@@ -226,5 +226,4 @@ class AgentOrchestrator:
         Returns:
             List of trace dictionaries
         """
-        traces = tracer.get_recent_traces(limit)
-        return [trace.to_dict() for trace in traces]
+        return tracer.get_recent_traces(limit)
