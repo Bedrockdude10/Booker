@@ -1,0 +1,6 @@
+[server]
+# Don't watch installed packages for changes — eliminates torchvision/transformers noise
+fileWatcherType = "none"
+
+[logger]
+level = "warning"

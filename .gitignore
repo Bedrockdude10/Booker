@@ -1,22 +1,45 @@
-# Ignore learning docs
-Learning Docs
-
-# Ignore environment file
+# Environment files — never commit secrets
 .env
+.env.local
+.env.*.local
 
-# Ignore DS store files
+# macOS
 .DS_Store
+*.pem
 
-# dependencies
-node_modules/
-
-# Expo
-.expo/
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
 dist/
+build/
+.venv/
+venv/
+
+# Node / Expo
+node_modules/
+.expo/
 web-build/
 expo-env.d.ts
+*.tsbuildinfo
 
-# Native
+# Go
+bin/
+lib/
+
+# npm debug logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Metro (React Native)
+.metro-health-check*
+
+# Native mobile artifacts
 *.orig.*
 *.jks
 *.p8
@@ -24,38 +47,8 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
-# Metro
-.metro-health-check*
+# Learning materials (local reference only)
+Learning Docs/
 
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
+# Misc
 app-example
-
-bin
-lib
-*.pyc
-agent-demo/src/agents/__pycache__/artist_discovery.cpython-313.pyc
-agent-demo/src/agents/__pycache__/base.cpython-313.pyc
-agent-demo/src/agents/__pycache__/booking_advisor.cpython-313.pyc
-agent-demo/src/agents/__pycache__/coordinator.cpython-313.pyc
-agent-demo/src/agents/__pycache__/venue_matching.cpython-313.pyc
-agent-demo/src/config/__pycache__/settings.cpython-313.pyc
-agent-demo/src/memory/__pycache__/conversation.cpython-313.pyc
-agent-demo/src/observability/__pycache__/tracer.cpython-313.pyc
-agent-demo/src/orchestration/__pycache__/executor.cpython-313.pyc
-*.pyc
-agent-demo/src/tools/__pycache__/registry.cpython-313.pyc
-agent-demo/src/tools/__pycache__/registry.cpython-313.pyc

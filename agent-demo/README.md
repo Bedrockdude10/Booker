@@ -203,7 +203,7 @@ See [booker_mcp/README.md](booker_mcp/README.md) for setup details.
 CLAUDE_API_KEY=your_key_here
 
 # Backend Connection
-BOOKER_API_URL=https://booker-65350421664.europe-west1.run.app  # Default
+BOOKER_API_URL=http://localhost:8080  # Default; override for a deployed backend
 MONGODB_URI=mongodb+srv://...  # For semantic search
 
 # Model Settings
@@ -291,7 +291,7 @@ pytest tests/
 
 ### API errors?
 - Check `.env` has valid `CLAUDE_API_KEY`
-- Verify backend is reachable: `curl https://booker-65350421664.europe-west1.run.app/health`
+- Verify backend is reachable: `curl http://localhost:8080/health`
 
 ### Semantic search not working?
 - Ensure `MONGODB_URI` is set

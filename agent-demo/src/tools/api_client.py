@@ -10,7 +10,7 @@ class BookerClient:
     def __init__(self, base_url: str | None = None, timeout: float = 30.0):
         self.base_url = base_url or os.getenv(
             "BOOKER_API_URL",
-            "https://booker-65350421664.europe-west1.run.app"
+            "http://localhost:8080"
         )
         self._client = httpx.Client(base_url=self.base_url, timeout=timeout)
 
